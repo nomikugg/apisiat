@@ -63,6 +63,16 @@ en tiempo real resiliente.
   Implementado y validado contra el ejemplo oficial en
   `app/integrations/siat/cuf/cuf_generator.py`.
 
+> **Revisión de versionamiento (2026-06-14):** se revisó el historial completo de
+> "Versionamiento" del portal SIN (`siatinfo.impuestos.gob.bo/index.php/versionamiento/`),
+> versiones 1.0.0 (RND 102100000011, ago-2021) a 1.0.58 (jun-2026). Ninguna entrada
+> menciona cambios a las páginas "Algoritmo Módulo 11", "Generación de SHA-256",
+> "Algoritmo Base 16" o "Generación CUF": los cambios registrados son sobre nuevos
+> documentos sector, ajustes de XML/XSD, fórmulas de cálculo de montos/ICE, y procesos de
+> autorización/login. Esto sugiere que el algoritmo CUF de 53+1 dígitos (con Punto de
+> Venta y sufijo `codigo_cufd`) está vigente desde la v1.0.0 y no requiere más ajustes por
+> este lado.
+
 ## Cómo un proveedor (tercero) opera a nombre de un contribuyente
 
 1. El contribuyente genera un **Token Delegado** desde el portal SIAT y se lo entrega al proveedor.
