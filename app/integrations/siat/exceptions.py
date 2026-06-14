@@ -8,11 +8,3 @@ class SiatConnectionError(SiatError):
 
 class SiatValidationError(SiatError):
     """El SIN rechazó el documento (XML/datos inválidos según sus reglas)."""
-
-
-class CodigoControlNoDisponibleError(SiatError):
-    """
-    El cálculo del Código de Control (CUF/CUFD) no puede completarse porque falta la
-    especificación exacta del SIN (alfabeto Base64 propio, orden de ensamblaje de los
-    6 pasos, casos de prueba de validación). Ver docs/04-adapter-siat.md.
-    """

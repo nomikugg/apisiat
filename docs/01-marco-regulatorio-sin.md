@@ -14,23 +14,44 @@ en tiempo real resiliente.
 
 ## CUFD y CUF — núcleo técnico
 
-- **CUFD (Código Único de Facturación Diaria):** se solicita al SIN una vez al día por punto de venta,
-  vigencia 24h. Obligatorio en todas las modalidades online.
-- **CUF (Código Único de Factura):** se genera por cada factura, combinando datos de la transacción
-  (NIT cliente, fecha, monto, número de factura/autorización) + el **Código de Control**.
-- **Código de Control — algoritmo de 6 pasos:**
-  1. Agregar 2 dígitos Verhoeff a factura/NIT/fecha/monto; sumar valores; agregar 5 dígitos Verhoeff más.
-  2. Extraer los últimos 5 dígitos Verhoeff; usarlos para extraer subcadenas de la "clave de dosificación".
-  3. Concatenar subcadenas extraídas con los campos originales; cifrar con RC4 usando la clave de
-     dosificación + los 5 dígitos Verhoeff.
-  4. Convertir el string cifrado a valores ASCII; distribuir en 5 sumas parciales.
-  5. Calcular producto (total × sumas parciales ÷ posiciones de subcadena); convertir a Base64 (SIN usa
-     diccionario propio de 64 caracteres, sin O/l/0/1).
-  6. Aplicar RC4 al resultado Base64 usando la clave combinada.
-  - Formato final: alfanumérico hasta 10 caracteres, en pares separados por guiones
-    (ej. `6A-DC-53-05-14`).
-  - El SIN publica ~5,000 casos de prueba (Excel/TXT) para validar la implementación — entregable
-    obligatorio antes de homologar.
+> **Actualización:** la descripción original de esta sección (algoritmo de 6 pasos con
+> Verhoeff/RC4/Base64 propio) era una hipótesis sin confirmar. Se obtuvo el PDF oficial
+> "Anexos Técnicos SFE" (RND N° 101800000026, 21/11/2018) y el algoritmo real es mucho
+> más simple — ver abajo. El esquema de 6 pasos probablemente correspondía al "Código de
+> Control" de 17 caracteres del **Anexo Técnico II** (Sistema de Facturación Virtual /SFV
+> legado, modalidades Computarizada/Electrónica Web/Por Ciclos en proceso de
+> discontinuación), no al CUF del SFE actual. Por eso se removieron `verhoeff.py`,
+> `rc4.py` y `base64_sin.py` del adapter.
+
+- **CUFD (Código Único de Facturación Diaria), CUIS (Código Único de Identificación del
+  Sistema) y CUAPE (modalidad Prevalorado):** NO se calculan localmente. Se obtienen del
+  SIN mediante los servicios web "Solicitud de CUFD" / "Solicitud de CUIS" / "Solicitud de
+  CUAPE" (autenticados con usuario/password del Token Delegado), con vigencia limitada
+  (CUFD: 24h). Ver `app/integrations/siat/soap_client.py`.
+
+- **CUF (Código Único de Factura) — algoritmo (Anexo Técnico I, "PROCESO DE GENERACIÓN
+  CUF"):**
+  1. Concatenar los siguientes campos, cada uno con ceros a la izquierda hasta su longitud
+     (total 47 dígitos):
+
+     | Campo                   | Longitud | Detalle                                  |
+     |-------------------------|----------|------------------------------------------|
+     | NIT del emisor          | 13       |                                            |
+     | Fecha/hora de emisión   | 17       | `yyyymmddhhmmssmmm`                       |
+     | Sucursal                | 4        | 0=Casa Matriz, 1=Sucursal 1, ...           |
+     | Modalidad               | 1        | 1=Electrónica, 2=Computarizada, 3=Portal Web, 4=Prevalorado Electrónico |
+     | Tipo de emisión         | 1        | 0=Online, 1=Offline                       |
+     | Código documento fiscal | 1        | 1=Factura, 2=Nota Débito/Crédito, 3=Nota Fiscal, 4=Documento Equivalente |
+     | Tipo documento sector   | 2        | 1=Factura Estándar ... 22=Boleto Aéreo     |
+     | Número de factura       | 8        |                                            |
+
+  2. Calcular un dígito autoverificador "Base 11" sobre la cadena de 47 dígitos y agregarlo
+     al final (cadena de 48 dígitos). El anexo no detalla el algoritmo más allá del nombre;
+     se implementó el Módulo 11 estándar (pesos 2-9 cíclicos), pendiente de validar contra
+     casos de prueba oficiales.
+  3. Codificar la cadena de 48 dígitos en Base 16 (hexadecimal) -> CUF.
+
+  Implementado en `app/integrations/siat/cuf/cuf_generator.py`.
 
 ## Cómo un proveedor (tercero) opera a nombre de un contribuyente
 
