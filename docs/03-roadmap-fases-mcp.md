@@ -3,7 +3,7 @@
 | Fase | Qué se hace | MCP recomendado | Estado |
 |---|---|---|---|
 | **0. Investigación/diseño** | Regulación SIN, análisis de competidores, arquitectura | Ninguno extra (WebSearch/WebFetch) | ✅ Completado (ver docs/00, 01, 02) |
-| **1. Setup del proyecto** | Repo git, scaffolding FastAPI, esquema inicial PostgreSQL, docker-compose | **GitHub MCP** (repo/issues/PRs) + **Postgres MCP** (iterar esquema) | ✅ Scaffolding y esquema completados (commit `9aa7c19`). DB local: `apisiat` en Postgres 17 local. Remote GitHub configurado (`github.com/nomikugg/apisiat`). Postgres MCP configurado en `.mcp.json` (gitignored). GitHub MCP pendiente de token. |
+| **1. Setup del proyecto** | Repo git, scaffolding FastAPI, esquema inicial PostgreSQL, docker-compose | **GitHub MCP** (repo/issues/PRs) + **Postgres MCP** (iterar esquema) | ✅ Completado: scaffolding y esquema (commit `9aa7c19`), DB local `apisiat` en Postgres 17, MCPs de Postgres y GitHub configurados en `.mcp.json` (gitignored), repo subido a `github.com/nomikugg/apisiat` (branch `master`). |
 | **2. Integración SIAT (sandbox)** | Adapter SOAP, algoritmo CUF/CUFD, contingencia | Sin MCP oficial del SIN. Opcional: MCP de CUCU como "oráculo" de referencia para comparar XML/CUF | ⏳ Pendiente |
 | **3. Homologación/Piloto con SIN** | Trámite ante el SIN, pruebas piloto, asociación de sistemas | Proceso manual vía portal SIAT — sin MCP aplicable | ⏳ Pendiente |
 | **4. Producción / cobros / monitoreo** | Facturación a clientes (suscripción + por factura), alertas | Stripe MCP (cobros) + Slack MCP (alertas de contingencia) | ⏳ Pendiente |
@@ -22,6 +22,5 @@
 - Próximo paso: definir el adapter SIAT (Fase 2) — cliente SOAP, generador XML, algoritmo CUF/CUFD,
   firma digital/huella.
 - MCPs de Fase 1: configurados en `.mcp.json` (gitignored, contiene credenciales/tokens). Postgres MCP
-  ya apunta a `apisiat` local. GitHub MCP requiere un Personal Access Token (scope `repo`) — pendiente
-  de que el usuario lo provea. Remote `origin` ya configurado: `https://github.com/nomikugg/apisiat.git`
-  (sin push todavía).
+  apunta a `apisiat` local y GitHub MCP tiene su Personal Access Token configurado. Remote `origin`
+  configurado y con push hecho: `https://github.com/nomikugg/apisiat.git` (branch `master`).
