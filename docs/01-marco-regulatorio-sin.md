@@ -14,44 +14,54 @@ en tiempo real resiliente.
 
 ## CUFD y CUF — núcleo técnico
 
-> **Actualización:** la descripción original de esta sección (algoritmo de 6 pasos con
-> Verhoeff/RC4/Base64 propio) era una hipótesis sin confirmar. Se obtuvo el PDF oficial
-> "Anexos Técnicos SFE" (RND N° 101800000026, 21/11/2018) y el algoritmo real es mucho
-> más simple — ver abajo. El esquema de 6 pasos probablemente correspondía al "Código de
-> Control" de 17 caracteres del **Anexo Técnico II** (Sistema de Facturación Virtual /SFV
-> legado, modalidades Computarizada/Electrónica Web/Por Ciclos en proceso de
-> discontinuación), no al CUF del SFE actual. Por eso se removieron `verhoeff.py`,
-> `rc4.py` y `base64_sin.py` del adapter.
+> **Actualización (2026-06-14):** la descripción original de esta sección (algoritmo de 6
+> pasos con Verhoeff/RC4/Base64 propio) era una hipótesis sin confirmar. Una primera
+> revisión usó el PDF "Anexos Técnicos SFE" (RND N° 101800000026, 21/11/2018), pero ese
+> documento quedó desactualizado: el SIN publica el algoritmo vigente directamente en el
+> portal `siatinfo.impuestos.gob.bo` (sección "Facturación en Línea > Algoritmos
+> Utilizados > Generación CUF" / "> Algoritmo Módulo 11", con pie de página "2026" y un
+> link "Versionamiento_2026"). Respecto al anexo de 2018 cambió: el campo "Número de
+> Factura" pasó de 8 a 10 dígitos, se agregó el campo "Punto de Venta" (4 dígitos), y el
+> CUF final incluye como sufijo el "código de control" devuelto por el servicio
+> `solicitudCufd`. El esquema de 6 pasos del hallazgo original probablemente
+> correspondía al "Código de Control" de 17 caracteres del **Anexo Técnico II** (Sistema
+> de Facturación Virtual/SFV legado), no al CUF del SFE actual. Por eso se removieron
+> `verhoeff.py`, `rc4.py` y `base64_sin.py` del adapter.
 
 - **CUFD (Código Único de Facturación Diaria), CUIS (Código Único de Identificación del
   Sistema) y CUAPE (modalidad Prevalorado):** NO se calculan localmente. Se obtienen del
   SIN mediante los servicios web "Solicitud de CUFD" / "Solicitud de CUIS" / "Solicitud de
   CUAPE" (autenticados con usuario/password del Token Delegado), con vigencia limitada
-  (CUFD: 24h). Ver `app/integrations/siat/soap_client.py`.
+  (CUFD: 24h). Ver `app/integrations/siat/soap_client.py`. El campo `codigo` de la
+  respuesta de CUFD (`CufdResultado.codigo`) se usa además como sufijo del CUF (ver abajo).
 
-- **CUF (Código Único de Factura) — algoritmo (Anexo Técnico I, "PROCESO DE GENERACIÓN
-  CUF"):**
+- **CUF (Código Único de Factura) — algoritmo (portal SIN, "Generación CUF" / "Algoritmo
+  Módulo 11", vigente 2026):**
   1. Concatenar los siguientes campos, cada uno con ceros a la izquierda hasta su longitud
-     (total 47 dígitos):
+     (total 53 dígitos):
 
-     | Campo                   | Longitud | Detalle                                  |
-     |-------------------------|----------|------------------------------------------|
-     | NIT del emisor          | 13       |                                            |
-     | Fecha/hora de emisión   | 17       | `yyyymmddhhmmssmmm`                       |
-     | Sucursal                | 4        | 0=Casa Matriz, 1=Sucursal 1, ...           |
-     | Modalidad               | 1        | 1=Electrónica, 2=Computarizada, 3=Portal Web, 4=Prevalorado Electrónico |
-     | Tipo de emisión         | 1        | 0=Online, 1=Offline                       |
-     | Código documento fiscal | 1        | 1=Factura, 2=Nota Débito/Crédito, 3=Nota Fiscal, 4=Documento Equivalente |
-     | Tipo documento sector   | 2        | 1=Factura Estándar ... 22=Boleto Aéreo     |
-     | Número de factura       | 8        |                                            |
+     | Campo                            | Longitud | Detalle                          |
+     |----------------------------------|----------|----------------------------------|
+     | NIT del emisor                   | 13       |                                  |
+     | Fecha/hora de emisión            | 17       | `yyyyMMddHHmmssSSS`              |
+     | Sucursal                         | 4        | 0=Casa Matriz, 1=Sucursal 1, ... |
+     | Modalidad                        | 1        | 1=Electrónica, 2=Computarizada, 3=Portal Web |
+     | Tipo de emisión                  | 1        | 1=Online, 2=Offline, 3=Masiva    |
+     | Tipo factura / documento ajuste  | 1        | 1=Factura con derecho a crédito fiscal, 2=sin derecho, 3=Documento de Ajuste |
+     | Tipo documento sector            | 2        | 1=Factura Estándar ... 24=Nota Crédito-Débito |
+     | Número de factura                | 10       |                                  |
+     | Punto de venta (POS)             | 4        | 0=No corresponde, 1,2,3...n      |
 
-  2. Calcular un dígito autoverificador "Base 11" sobre la cadena de 47 dígitos y agregarlo
-     al final (cadena de 48 dígitos). El anexo no detalla el algoritmo más allá del nombre;
-     se implementó el Módulo 11 estándar (pesos 2-9 cíclicos), pendiente de validar contra
-     casos de prueba oficiales.
-  3. Codificar la cadena de 48 dígitos en Base 16 (hexadecimal) -> CUF.
+  2. Calcular un dígito autoverificador Módulo 11 sobre la cadena de 53 dígitos y
+     agregarlo al final (cadena de 54 dígitos). Fórmula (pesos 2-9 cíclicos de derecha a
+     izquierda): `digito = suma % 11`; si `digito == 10`, el dígito final es `1`.
+     Verificado contra el ejemplo oficial del portal del SIN.
+  3. Codificar la cadena de 54 dígitos en Base 16 (hexadecimal).
+  4. Concatenar el resultado del paso 3 con el "código de control" del servicio
+     `solicitudCufd` (`CufdResultado.codigo`) -> CUF.
 
-  Implementado en `app/integrations/siat/cuf/cuf_generator.py`.
+  Implementado y validado contra el ejemplo oficial en
+  `app/integrations/siat/cuf/cuf_generator.py`.
 
 ## Cómo un proveedor (tercero) opera a nombre de un contribuyente
 

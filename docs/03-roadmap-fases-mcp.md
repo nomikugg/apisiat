@@ -4,7 +4,7 @@
 |---|---|---|---|
 | **0. Investigación/diseño** | Regulación SIN, análisis de competidores, arquitectura | Ninguno extra (WebSearch/WebFetch) | ✅ Completado (ver docs/00, 01, 02) |
 | **1. Setup del proyecto** | Repo git, scaffolding FastAPI, esquema inicial PostgreSQL, docker-compose | **GitHub MCP** (repo/issues/PRs) + **Postgres MCP** (iterar esquema) | ✅ Completado: scaffolding y esquema (commit `9aa7c19`), DB local `apisiat` en Postgres 17, MCPs de Postgres y GitHub configurados en `.mcp.json` (gitignored), repo subido a `github.com/nomikugg/apisiat` (branch `master`). |
-| **2. Integración SIAT (sandbox)** | Adapter SOAP, algoritmo CUF/CUFD, contingencia | Sin MCP oficial del SIN. Opcional: MCP de CUCU como "oráculo" de referencia para comparar XML/CUF | 🟡 Algoritmo de CUF implementado y testeado (RND 101800000026, `app/integrations/siat/cuf/cuf_generator.py`); confirmado que CUFD/CUIS/CUAPE se obtienen del SIN vía SOAP (no se calculan). Generador XML y firma PKCS#12/XML-DSig implementados y testeados. Pendiente: URLs WSDL de sandbox, Token Delegado, validar dígito Base11 — ver `docs/04-adapter-siat.md`. |
+| **2. Integración SIAT (sandbox)** | Adapter SOAP, algoritmo CUF/CUFD, contingencia | Sin MCP oficial del SIN. Opcional: MCP de CUCU como "oráculo" de referencia para comparar XML/CUF | 🟡 Algoritmo de CUF implementado y validado contra el ejemplo oficial del portal SIN 2026 (`app/integrations/siat/cuf/cuf_generator.py`); confirmado que CUFD/CUIS/CUAPE se obtienen del SIN vía SOAP (no se calculan), y que el CUF incluye como sufijo el `codigo` de CUFD. Generador XML y firma PKCS#12/XML-DSig implementados y testeados. Pendiente: URLs WSDL de sandbox, Token Delegado, XSD oficial — ver `docs/04-adapter-siat.md`. |
 | **3. Homologación/Piloto con SIN** | Trámite ante el SIN, pruebas piloto, asociación de sistemas | Proceso manual vía portal SIAT — sin MCP aplicable | ⏳ Pendiente |
 | **4. Producción / cobros / monitoreo** | Facturación a clientes (suscripción + por factura), alertas | Stripe MCP (cobros) + Slack MCP (alertas de contingencia) | ⏳ Pendiente |
 
@@ -20,11 +20,13 @@
   actividades económicas, dosificaciones, CUFD cache, clientes, facturas/items, notas crédito-débito,
   contingencia, plans/subscriptions/usage_records, webhooks, audit_logs.
 - Adapter SIAT (Fase 2): esqueleto en `app/integrations/siat/` con tests en
-  `tests/integrations/siat/`. Se obtuvo y analizó el PDF de Anexos Técnicos SFE
-  (RND 101800000026): el algoritmo de CUF (47 dígitos + dígito Base11 + Base16) ya está
-  implementado y testeado; CUFD/CUIS/CUAPE se obtienen del SIN vía SOAP (no se calculan).
-  Detalle de qué falta en `docs/04-adapter-siat.md`. Próximo paso: registro en ambiente
-  PILOTO para obtener Token Delegado + URLs WSDL de sandbox.
+  `tests/integrations/siat/`. El PDF "Anexos Técnicos SFE" de 2018 (RND 101800000026)
+  resultó estar desactualizado; el algoritmo de CUF vigente (53 dígitos + dígito Módulo 11
+  + Base16 + sufijo `codigo` de CUFD) se tomó del portal `siatinfo.impuestos.gob.bo`
+  (2026) y está implementado y validado contra su ejemplo oficial. CUFD/CUIS/CUAPE se
+  obtienen del SIN vía SOAP (no se calculan). Detalle de qué falta en
+  `docs/04-adapter-siat.md`. Próximo paso: registro en ambiente PILOTO para obtener Token
+  Delegado + URLs WSDL de sandbox.
 - MCPs de Fase 1: configurados en `.mcp.json` (gitignored, contiene credenciales/tokens). Postgres MCP
   apunta a `apisiat` local y GitHub MCP tiene su Personal Access Token configurado. Remote `origin`
   configurado y con push hecho: `https://github.com/nomikugg/apisiat.git` (branch `master`).
