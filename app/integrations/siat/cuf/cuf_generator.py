@@ -41,6 +41,14 @@ Validado contra el ejemplo oficial de la página "Generación CUF": con NIT
 de emisión 1, tipo factura/documento ajuste 1, tipo documento sector 01,
 número de factura 1, POS 0 y código de control "A19E23EF34124CD", el CUF
 resultante es "8727F63A15F8976591FDDE5B387C5D015A29E06A1A19E23EF34124CD".
+
+Nota sobre el paso 3 (Base 16): el SIN documenta ese paso con
+`BigInteger.Parse(cadena).ToString("X")` (C#), que antepone un "0" cuando el
+primer nibble es >= 8 (para que `Parse(..., HexNumber)` no lo interprete como
+negativo en el round-trip). El ejemplo oficial ("8727F63A...", empieza con
+"8") NO tiene ese "0" extra, y `format(int(cadena_54), "X")` en Python
+(que tampoco lo agrega) coincide exactamente con ese ejemplo -> no agregar
+ceros extra para "imitar" el comportamiento de BigInteger en C#.
 """
 
 from datetime import datetime
