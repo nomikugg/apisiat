@@ -4,7 +4,7 @@
 |---|---|---|---|
 | **0. Investigación/diseño** | Regulación SIN, análisis de competidores, arquitectura | Ninguno extra (WebSearch/WebFetch) | ✅ Completado (ver docs/00, 01, 02) |
 | **1. Setup del proyecto** | Repo git, scaffolding FastAPI, esquema inicial PostgreSQL, docker-compose | **GitHub MCP** (repo/issues/PRs) + **Postgres MCP** (iterar esquema) | ✅ Completado: scaffolding y esquema (commit `9aa7c19`), DB local `apisiat` en Postgres 17, MCPs de Postgres y GitHub configurados en `.mcp.json` (gitignored), repo subido a `github.com/nomikugg/apisiat` (branch `master`). |
-| **2. Integración SIAT (sandbox)** | Adapter SOAP, algoritmo CUF/CUFD, contingencia | Sin MCP oficial del SIN. Opcional: MCP de CUCU como "oráculo" de referencia para comparar XML/CUF | ⏳ Pendiente |
+| **2. Integración SIAT (sandbox)** | Adapter SOAP, algoritmo CUF/CUFD, contingencia | Sin MCP oficial del SIN. Opcional: MCP de CUCU como "oráculo" de referencia para comparar XML/CUF | 🟡 Esqueleto creado (`app/integrations/siat/`): Verhoeff, RC4, codec Base64 parametrizable, generador XML y firma PKCS#12/XML-DSig implementados y testeados. Pendiente completar Código de Control (pasos 2-6), URLs WSDL y huella digital — ver `docs/04-adapter-siat.md`. |
 | **3. Homologación/Piloto con SIN** | Trámite ante el SIN, pruebas piloto, asociación de sistemas | Proceso manual vía portal SIAT — sin MCP aplicable | ⏳ Pendiente |
 | **4. Producción / cobros / monitoreo** | Facturación a clientes (suscripción + por factura), alertas | Stripe MCP (cobros) + Slack MCP (alertas de contingencia) | ⏳ Pendiente |
 
@@ -19,8 +19,10 @@
 - Esquema aplicado con Alembic (revisión `5c193cc7c26f`): tenants, sucursales, puntos de venta,
   actividades económicas, dosificaciones, CUFD cache, clientes, facturas/items, notas crédito-débito,
   contingencia, plans/subscriptions/usage_records, webhooks, audit_logs.
-- Próximo paso: definir el adapter SIAT (Fase 2) — cliente SOAP, generador XML, algoritmo CUF/CUFD,
-  firma digital/huella.
+- Adapter SIAT (Fase 2): esqueleto en `app/integrations/siat/` con tests en
+  `tests/integrations/siat/`. Detalle de qué está implementado y qué falta (bloqueado por
+  especificación oficial del SIN) en `docs/04-adapter-siat.md`. Próximo paso: conseguir el
+  PDF de Anexos Técnicos SFE + casos de prueba del Código de Control, y URLs WSDL de sandbox.
 - MCPs de Fase 1: configurados en `.mcp.json` (gitignored, contiene credenciales/tokens). Postgres MCP
   apunta a `apisiat` local y GitHub MCP tiene su Personal Access Token configurado. Remote `origin`
   configurado y con push hecho: `https://github.com/nomikugg/apisiat.git` (branch `master`).
