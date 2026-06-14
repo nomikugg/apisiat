@@ -34,7 +34,10 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder).
 - **Generador XML "Factura Compra Venta"**: `xml_builder.py`, produce XML bien formado
   con los campos conocidos (cabecera + detalle).
 - **PKCS#12 + firma XML-DSig**: `signing.py`, usa `cryptography` y `signxml` (librerías
-  estándar, sin secretos del SIN).
+  estándar, sin secretos del SIN). El proceso de 11 pasos descrito en
+  siatinfo.impuestos.gob.bo ("Facturación en Línea > Firma Digital > Firma Digital") —
+  canonicalizar, SHA-256, Base64, armar `<Signature>`, firmar con RSA-SHA256, etc. — es el
+  procedimiento estándar de XML-DSig "enveloped" que `signxml.XMLSigner` ya implementa.
 
 ## Pendientes — bloqueados por especificación oficial del SIN
 
@@ -57,6 +60,24 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder).
    contra el XSD oficial de "Factura Compra Venta", publicado en
    `siatinfo.impuestos.gob.bo` (sección "Archivos XML / XSD de Facturas Electrónicas").
 
+4. **Algoritmo de canonicalización en `firmar_xml()`** — el ejemplo Java oficial
+   ("Facturación en Línea > Firma Digital > Firmado de XML") construye la firma así:
+   `Transforms = [ENVELOPED_SIGNATURE, C14N_WITH_COMMENTS]` (es decir, el
+   `<Reference>/<Transforms>` aplica canonicalización C14N 1.0 **con comentarios**,
+   `http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments`), mientras que el
+   `<CanonicalizationMethod>` de `<SignedInfo>` queda en el valor por defecto de Apache
+   Santuario (C14N 1.0 **sin** comentarios, `http://www.w3.org/TR/2001/REC-xml-c14n-20010315`).
+   `signing.firmar_xml()` usa `XMLSigner()` con sus valores por defecto, que en la versión
+   instalada de `signxml` son `c14n_algorithm=CANONICAL_XML_1_1` (C14N **1.1**, sin
+   comentarios) aplicado tanto a `SignedInfo` como al `Reference` — no coincide con el
+   ejemplo del SIN en ninguno de los dos algoritmos (1.0 vs 1.1, y "with comments" en el
+   `Reference`). La página "Firma Inválida" del mismo portal advierte que el algoritmo de
+   hash/canonicalización incorrecto es la causa más común de "firma inválida". Pendiente:
+   verificar si `signxml` permite configurar `CanonicalizationMethod` (SignedInfo) y el
+   transform del `Reference` por separado, o si hay que firmar manualmente con
+   `lxml` + `apache santuario`-equivalente para replicar exactamente el ejemplo Java.
+   No se puede validar sin un endpoint/certificado de prueba del SIN (ambiente PILOTO).
+
 ## Próximos pasos sugeridos
 
 - Iniciar el registro como proveedor / ambiente PILOTO en el portal SIAT para obtener
@@ -68,3 +89,7 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder).
 - Descargar el XSD oficial de "Factura Compra Venta" desde
   `siatinfo.impuestos.gob.bo` (sección "Archivos XML / XSD de Facturas Electrónicas") y
   validar `xml_builder.build_factura_compra_venta_xml()` contra él.
+- Con un certificado de prueba del ambiente PILOTO, firmar un XML de ejemplo con
+  `signing.firmar_xml()` y comparar el `<Signature>` resultante contra el del ejemplo Java
+  oficial (algoritmos de `CanonicalizationMethod`/`Transforms`, ver pendiente #4) hasta
+  obtener "firma válida" del SIN.
