@@ -73,6 +73,21 @@ en tiempo real resiliente.
 > Venta y sufijo `codigo_cufd`) está vigente desde la v1.0.0 y no requiere más ajustes por
 > este lado.
 
+## Otros algoritmos confirmados del portal SIN (pendientes de implementar)
+
+- **Redondeo** (portal SIN, "Algoritmos Utilizados > Algoritmo de Redondeo"): los montos
+  de facturas electrónicas en línea usan redondeo **HALF-UP** ("tradicional") a 2
+  decimales (ej.: `3.14159` -> `3.14`, `3.14559` -> `3.15`). **Ojo:** `Decimal` de Python
+  redondea por defecto con `ROUND_HALF_EVEN` ("banker's rounding"), no `ROUND_HALF_UP` —
+  al calcular subtotales/totales en `xml_builder.py` hay que usar explícitamente
+  `Decimal(...).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)`.
+- **Compresión GZIP** (portal SIN, "Algoritmos Utilizados > Comprimir GZIP"): para
+  "Recepción Paquete Factura" (envío por contingencia o masivo) cada archivo XML se
+  comprime con GZIP (el ejemplo Java usa `GZIPOutputStream` y nombra el resultado con
+  sufijo `.zip`, aunque el formato es gzip real, no zip). En Python equivale al módulo
+  estándar `gzip` (`gzip.compress(...)`). Pendiente de implementar en `soap_client.py`
+  cuando se aborden los métodos de paquete/masivo.
+
 ## Cómo un proveedor (tercero) opera a nombre de un contribuyente
 
 1. El contribuyente genera un **Token Delegado** desde el portal SIAT y se lo entrega al proveedor.
