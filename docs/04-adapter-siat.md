@@ -45,10 +45,13 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder).
    se tenga el Token Delegado / registro en ambiente PILOTO. El método "Solicitud de CUFD"
    requiere además credenciales (`usuario`/`password`) del Token Delegado.
 
-2. **"Huella digital" (modalidad Computarizada)** — `signing.huella_digital()` aplica
-   SHA-256 sobre el XML completo como placeholder. Falta confirmar la concatenación exacta
-   de campos que pide el SIN para la modalidad Computarizada (no aplica a Electrónica, que
-   usa certificado digital completo).
+2. **"Huella digital" (modalidad Computarizada)** — el primitivo (SHA-256 sobre bytes ->
+   hex en minúsculas) está confirmado en siatinfo.impuestos.gob.bo ("Algoritmos
+   Utilizados > Generación de SHA-256, MD5 y CRC32") y coincide con
+   `hashlib.sha256(...).hexdigest()`. Falta confirmar qué bytes exactos se hashean por
+   factura (¿el XML completo?, ¿una concatenación puntual de campos?); `signing.
+   huella_digital()` aplica SHA-256 sobre el XML completo como placeholder. No aplica a
+   la modalidad Electrónica, que usa certificado digital completo.
 
 3. **Validación XSD** — `xml_builder.build_factura_compra_venta_xml()` no está validado
    contra el XSD oficial de "Factura Compra Venta", publicado en

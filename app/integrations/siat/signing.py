@@ -38,9 +38,14 @@ def huella_digital(xml: str) -> str:
     """
     Calcula la "huella digital" (modalidad Computarizada) de un XML.
 
-    TODO: el SIN especifica qué campos exactos del documento (y en qué orden/formato)
-    se concatenan antes de aplicar el hash. Esta implementación aplica SHA-256 sobre el
-    XML completo como placeholder, hasta tener esa especificación
+    El primitivo (SHA-256 sobre bytes -> hex en minúsculas, vía
+    `DatatypeConverter.printHexBinary(...).toLowerCase()`) está confirmado en
+    siatinfo.impuestos.gob.bo ("Algoritmos Utilizados > Generación de SHA-256, MD5 y
+    CRC32") y coincide con `hashlib.sha256(...).hexdigest()`.
+
+    TODO: falta confirmar qué bytes exactos se hashean para la "huella digital" por
+    factura (¿el XML completo?, ¿una concatenación puntual de campos?). Esta
+    implementación aplica SHA-256 sobre el XML completo como placeholder
     (ver docs/04-adapter-siat.md).
     """
     return hashlib.sha256(xml.encode("utf-8")).hexdigest()
