@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -85,6 +85,10 @@ class Factura(UUIDPKMixin, TimestampMixin, Base):
     estado: Mapped[EstadoFactura] = mapped_column(Enum(EstadoFactura, name="estado_factura"), default=EstadoFactura.PENDIENTE)
     xml_path: Mapped[str | None] = mapped_column(String(500))
     pdf_path: Mapped[str | None] = mapped_column(String(500))
+    contingency_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("contingency_events.id"), index=True
+    )
+    emision_sin_json: Mapped[dict | None] = mapped_column(JSONB)
 
     items: Mapped[list["FacturaItem"]] = relationship(back_populates="factura")
 

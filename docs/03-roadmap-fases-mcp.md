@@ -48,6 +48,17 @@
   (`EmisionFacturaRequest`) hasta que existan catálogos/`Credential`+Vault. Se ajustó
   `facturas.cuf`/`notas_credito_debito.cuf` a `VARCHAR(100)` (revisión Alembic
   `2d913fb54643`) porque el CUF real supera los 50 caracteres del esquema inicial.
+- Eventos de contingencia: modelo `ContingencyEvent` ya existente en el esquema.
+  Se agregaron `contingency_event_id` (FK nullable) y `emision_sin_json` (JSONB, payload
+  sin credenciales) a `Factura` (migración `037ee9941b5d`). Al ocurrir
+  `SiatConnectionError`, se crea o reutiliza el evento abierto para ese tenant+punto_venta
+  (`app/services/contingencia.py::obtener_o_crear_evento`), la factura queda vinculada y
+  el payload del SIN se persiste para reintentar. Endpoints:
+  `POST /tenants/{id}/contingency-events` (apertura manual),
+  `GET /tenants/{id}/contingency-events`, `GET /contingency-events/{id}`,
+  `POST /contingency-events/{id}/cerrar`,
+  `POST /contingency-events/{id}/reintentar` (recibe solo credenciales, reconstruye el
+  payload de cada factura desde `emision_sin_json` y reintenta emitir).
 - Autenticación por API keys: modelo `ApiKey` (`app/models/integration.py`) con
   `clave_hash` SHA-256 (la clave en texto plano sólo se retorna en la creación),
   `prefijo` (primeros 12 chars para identificación) y `activa`. Módulo

@@ -11,6 +11,7 @@ from app.models.integration import ApiKey
 from app.models.tenant import ModalidadFacturacion, PuntoVenta, Sucursal, Tenant
 from app.schemas.factura import EmisionFacturaRequest, EmisionFacturaResponse, FacturaCreate, FacturaRead
 from app.services.auditoria import registrar_auditoria
+from app.services.contingencia import obtener_o_crear_evento
 from app.services.emision import emitir_factura
 
 router = APIRouter(tags=["facturas"])
@@ -139,6 +140,12 @@ def emitir_factura_endpoint(
     except SiatConnectionError as exc:
         estado_anterior = factura.estado.value
         factura.estado = EstadoFactura.CONTINGENCIA
+        evento = obtener_o_crear_evento(
+            db, tenant_id=factura.tenant_id, punto_venta_id=factura.punto_venta_id, motivo=str(exc)
+        )
+        db.flush()  # obtiene evento.id antes del commit
+        factura.contingency_event_id = evento.id
+        factura.emision_sin_json = payload.model_dump(mode="json", exclude={"nit", "login", "password"})
         registrar_auditoria(
             db,
             tenant_id=factura.tenant_id,
@@ -146,7 +153,12 @@ def emitir_factura_endpoint(
             accion="emision_factura",
             entidad="factura",
             entidad_id=factura.id,
-            detalle={"estado_anterior": estado_anterior, "estado_nuevo": factura.estado.value, "error": str(exc)},
+            detalle={
+                "estado_anterior": estado_anterior,
+                "estado_nuevo": factura.estado.value,
+                "error": str(exc),
+                "contingency_event_id": str(evento.id),
+            },
         )
         db.commit()
         db.refresh(factura)
