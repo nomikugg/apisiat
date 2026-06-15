@@ -1,6 +1,7 @@
 import enum
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,8 +23,8 @@ class Plan(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "plans"
 
     nombre: Mapped[str] = mapped_column(String(100), unique=True)
-    precio_mensual: Mapped[float] = mapped_column(Numeric(10, 2))
-    precio_por_factura: Mapped[float] = mapped_column(Numeric(10, 4))
+    precio_mensual: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    precio_por_factura: Mapped[Decimal] = mapped_column(Numeric(10, 4))
     facturas_incluidas: Mapped[int] = mapped_column(default=0)
 
     suscripciones: Mapped[list["Subscription"]] = relationship(back_populates="plan")
@@ -51,6 +52,6 @@ class UsageRecord(UUIDPKMixin, Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id"), index=True)
     factura_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("facturas.id"), unique=True)
     periodo: Mapped[str] = mapped_column(String(7))  # formato YYYY-MM
-    monto_cobrado: Mapped[float] = mapped_column(Numeric(10, 4))
+    monto_cobrado: Mapped[Decimal] = mapped_column(Numeric(10, 4))
     facturado: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

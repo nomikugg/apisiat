@@ -1,6 +1,7 @@
 import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -79,7 +80,7 @@ class Factura(UUIDPKMixin, TimestampMixin, Base):
     cufd: Mapped[str | None] = mapped_column(String(100))
     fecha_emision: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     moneda: Mapped[str] = mapped_column(String(3), default="BOB")
-    monto_total: Mapped[float] = mapped_column(Numeric(18, 2))
+    monto_total: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     tipo_documento_sector: Mapped[int]
     estado: Mapped[EstadoFactura] = mapped_column(Enum(EstadoFactura, name="estado_factura"), default=EstadoFactura.PENDIENTE)
     xml_path: Mapped[str | None] = mapped_column(String(500))
@@ -93,9 +94,9 @@ class FacturaItem(UUIDPKMixin, Base):
 
     factura_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("facturas.id"), index=True)
     descripcion: Mapped[str] = mapped_column(String(500))
-    cantidad: Mapped[float] = mapped_column(Numeric(18, 4))
-    precio_unitario: Mapped[float] = mapped_column(Numeric(18, 4))
-    subtotal: Mapped[float] = mapped_column(Numeric(18, 2))
+    cantidad: Mapped[Decimal] = mapped_column(Numeric(18, 4))
+    precio_unitario: Mapped[Decimal] = mapped_column(Numeric(18, 4))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(18, 2))
 
     factura: Mapped["Factura"] = relationship(back_populates="items")
 
@@ -106,7 +107,7 @@ class NotaCreditoDebito(UUIDPKMixin, TimestampMixin, Base):
     factura_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("facturas.id"), index=True)
     tipo: Mapped[TipoDocumentoFiscal] = mapped_column(Enum(TipoDocumentoFiscal, name="tipo_documento_fiscal"))
     motivo: Mapped[str] = mapped_column(String(500))
-    monto: Mapped[float] = mapped_column(Numeric(18, 2))
+    monto: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     cuf: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)
     estado: Mapped[EstadoFactura] = mapped_column(Enum(EstadoFactura, name="estado_nota"), default=EstadoFactura.PENDIENTE)
 

@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509 import Certificate
 from lxml import etree
 from signxml import XMLSigner
+from signxml.algorithms import CanonicalizationMethod
 
 
 def cargar_pkcs12(pfx_bytes: bytes, password: str) -> tuple[PrivateKeyTypes, Certificate]:
@@ -28,9 +29,24 @@ def cargar_pkcs12(pfx_bytes: bytes, password: str) -> tuple[PrivateKeyTypes, Cer
 
 
 def firmar_xml(xml: str, private_key: PrivateKeyTypes, certificate: Certificate) -> str:
-    """Firma `xml` con XML-DSig (enveloped) usando la clave y certificado dados."""
+    """
+    Firma `xml` con XML-DSig (enveloped) usando la clave y certificado dados.
+
+    `c14n_algorithm=CANONICAL_XML_1_0` reproduce el `<CanonicalizationMethod>` del ejemplo
+    Java oficial del SIN ("Facturación en Línea > Firma Digital > Firmado de XML"), que usa
+    el valor por defecto de Apache Santuario (C14N 1.0 sin comentarios,
+    `http://www.w3.org/TR/2001/REC-xml-c14n-20010315`) en vez del default de `signxml`
+    (C14N 1.1). El `<Reference>/<Transforms>` del ejemplo del SIN usa C14N 1.0 **con**
+    comentarios (`#WithComments`); como nuestros XML no incluyen comentarios, el *digest*
+    resultante es idéntico con o sin comentarios, por lo que se deja sin forzar (ver
+    docs/04-adapter-siat.md, pendiente #4).
+
+    `cert=[certificate]` es necesario porque `signxml` espera una lista/cadena de
+    certificados (`cert_chain`), no un objeto `Certificate` suelto.
+    """
     root = etree.fromstring(xml.encode("utf-8"))
-    signed_root = XMLSigner().sign(root, key=private_key, cert=certificate)
+    signer = XMLSigner(c14n_algorithm=CanonicalizationMethod.CANONICAL_XML_1_0)
+    signed_root = signer.sign(root, key=private_key, cert=[certificate])
     return etree.tostring(signed_root, xml_declaration=True, encoding="UTF-8").decode("utf-8")
 
 

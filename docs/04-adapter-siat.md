@@ -38,6 +38,14 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder).
   siatinfo.impuestos.gob.bo ("Facturación en Línea > Firma Digital > Firma Digital") —
   canonicalizar, SHA-256, Base64, armar `<Signature>`, firmar con RSA-SHA256, etc. — es el
   procedimiento estándar de XML-DSig "enveloped" que `signxml.XMLSigner` ya implementa.
+  `firmar_xml()` ahora pasa `cert=[certificate]` (no `certificate` suelto: `signxml`
+  espera una `cert_chain`, lista/cadena — pasar un objeto `Certificate` suelto rompía con
+  `TypeError: object of type 'Certificate' has no len()`, bug detectado y corregido en
+  esta revisión, antes sin cobertura de tests) y `c14n_algorithm=CANONICAL_XML_1_0`, para
+  que `<SignedInfo>/<CanonicalizationMethod>` coincida exactamente con el valor por
+  defecto de Apache Santuario usado en el ejemplo Java oficial del SIN (C14N 1.0 sin
+  comentarios; antes `signxml` usaba C14N 1.1 por defecto). Cubierto por
+  `tests/integrations/siat/test_signing.py`.
 
 ## Pendientes — bloqueados por especificación oficial del SIN
 
@@ -60,23 +68,36 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder).
    contra el XSD oficial de "Factura Compra Venta", publicado en
    `siatinfo.impuestos.gob.bo` (sección "Archivos XML / XSD de Facturas Electrónicas").
 
-4. **Algoritmo de canonicalización en `firmar_xml()`** — el ejemplo Java oficial
-   ("Facturación en Línea > Firma Digital > Firmado de XML") construye la firma así:
-   `Transforms = [ENVELOPED_SIGNATURE, C14N_WITH_COMMENTS]` (es decir, el
-   `<Reference>/<Transforms>` aplica canonicalización C14N 1.0 **con comentarios**,
-   `http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments`), mientras que el
-   `<CanonicalizationMethod>` de `<SignedInfo>` queda en el valor por defecto de Apache
-   Santuario (C14N 1.0 **sin** comentarios, `http://www.w3.org/TR/2001/REC-xml-c14n-20010315`).
-   `signing.firmar_xml()` usa `XMLSigner()` con sus valores por defecto, que en la versión
-   instalada de `signxml` son `c14n_algorithm=CANONICAL_XML_1_1` (C14N **1.1**, sin
-   comentarios) aplicado tanto a `SignedInfo` como al `Reference` — no coincide con el
-   ejemplo del SIN en ninguno de los dos algoritmos (1.0 vs 1.1, y "with comments" en el
-   `Reference`). La página "Firma Inválida" del mismo portal advierte que el algoritmo de
-   hash/canonicalización incorrecto es la causa más común de "firma inválida". Pendiente:
-   verificar si `signxml` permite configurar `CanonicalizationMethod` (SignedInfo) y el
-   transform del `Reference` por separado, o si hay que firmar manualmente con
-   `lxml` + `apache santuario`-equivalente para replicar exactamente el ejemplo Java.
-   No se puede validar sin un endpoint/certificado de prueba del SIN (ambiente PILOTO).
+4. **Algoritmo de canonicalización en `firmar_xml()` (parcialmente resuelto)** — el
+   ejemplo Java oficial ("Facturación en Línea > Firma Digital > Firmado de XML")
+   construye la firma con `<SignedInfo>/<CanonicalizationMethod>` = C14N 1.0 sin
+   comentarios (`http://www.w3.org/TR/2001/REC-xml-c14n-20010315`, el valor por defecto de
+   Apache Santuario) y `<Reference>/<Transforms>` =
+   `[ENVELOPED_SIGNATURE, C14N 1.0 CON comentarios]`
+   (`http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments`). `signxml` usaba por
+   defecto `c14n_algorithm=CANONICAL_XML_1_1` (C14N **1.1**, sin comentarios) para AMBOS —
+   no coincidía con el ejemplo del SIN en ninguno de los dos. Se corrigió pasando
+   `c14n_algorithm=CANONICAL_XML_1_0` en `firmar_xml()`, lo que alinea
+   `<SignedInfo>/<CanonicalizationMethod>` exactamente con el ejemplo del SIN (1.0 vs 1.1
+   era la diferencia de algoritmo más concreta).
+
+   Queda una diferencia menor sin resolver: el `<Reference>/<Transforms>` de
+   `firmar_xml()` queda en C14N 1.0 **sin** comentarios (heredado de `c14n_algorithm`),
+   mientras que el ejemplo del SIN usa la variante **con comentarios**
+   (`#WithComments`). Como `xml_builder.py` no genera comentarios XML, el *digest*
+   resultante es idéntico en ambos casos (con/sin comentarios solo difiere si el
+   documento contiene comentarios) — solo cambia el string del `Algorithm` declarado en
+   el `<Transform>`, que es a su vez parte de lo firmado (consistencia interna OK). Se
+   intentó forzar `#WithComments` en el `Reference` vía
+   `SignatureReference(URI=..., c14n_method=...)`, pero requiere agregar un atributo
+   `Id` al elemento raíz y referenciarlo con `URI="#id"` (la `URI=""` de "documento
+   completo" no es soportada por `signxml` junto con un `c14n_method` por-`Reference`
+   distinto) — agregar un atributo `Id` no documentado al elemento raíz es un riesgo de
+   romper la validación contra el XSD oficial, así que se descartó. La página "Firma
+   Inválida" del mismo portal advierte que el algoritmo de hash/canonicalización
+   incorrecto es la causa más común de "firma inválida", por lo que sigue siendo
+   importante validar esto con un certificado de prueba real (ambiente PILOTO) en cuanto
+   esté disponible.
 
 ## Próximos pasos sugeridos
 

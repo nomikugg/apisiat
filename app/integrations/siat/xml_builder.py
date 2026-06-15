@@ -11,6 +11,7 @@ documentado en docs/04-adapter-siat.md.
 
 from lxml import etree
 
+from app.integrations.siat.redondeo import redondear_monto
 from app.integrations.siat.schemas import FacturaSiatPayload
 
 
@@ -34,14 +35,14 @@ def build_factura_compra_venta_xml(payload: FacturaSiatPayload) -> str:
     if payload.cliente_complemento:
         etree.SubElement(cabecera, "complementoCliente").text = payload.cliente_complemento
     etree.SubElement(cabecera, "codigoMoneda").text = payload.moneda
-    etree.SubElement(cabecera, "montoTotal").text = str(payload.monto_total)
+    etree.SubElement(cabecera, "montoTotal").text = str(redondear_monto(payload.monto_total))
 
     detalle = etree.SubElement(root, "detalle")
     for item in payload.items:
         item_el = etree.SubElement(detalle, "item")
         etree.SubElement(item_el, "descripcion").text = item.descripcion
         etree.SubElement(item_el, "cantidad").text = str(item.cantidad)
-        etree.SubElement(item_el, "precioUnitario").text = str(item.precio_unitario)
-        etree.SubElement(item_el, "subTotal").text = str(item.subtotal)
+        etree.SubElement(item_el, "precioUnitario").text = str(redondear_monto(item.precio_unitario))
+        etree.SubElement(item_el, "subTotal").text = str(redondear_monto(item.subtotal))
 
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8", pretty_print=True).decode("utf-8")
