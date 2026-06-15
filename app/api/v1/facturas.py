@@ -8,6 +8,7 @@ from app.integrations.siat.exceptions import SiatConnectionError, SiatValidation
 from app.models.facturacion import Cliente, Dosificacion, EstadoFactura, Factura, FacturaItem
 from app.models.tenant import ModalidadFacturacion, PuntoVenta, Sucursal, Tenant
 from app.schemas.factura import EmisionFacturaRequest, EmisionFacturaResponse, FacturaCreate, FacturaRead
+from app.services.auditoria import registrar_auditoria
 from app.services.emision import emitir_factura
 
 router = APIRouter(tags=["facturas"])
@@ -118,7 +119,17 @@ def emitir_factura_endpoint(
     try:
         resultado = emitir_factura(db, factura, tenant, sucursal, punto_venta, cliente, payload)
     except SiatConnectionError as exc:
+        estado_anterior = factura.estado.value
         factura.estado = EstadoFactura.CONTINGENCIA
+        registrar_auditoria(
+            db,
+            tenant_id=factura.tenant_id,
+            actor="orquestador-siat",
+            accion="emision_factura",
+            entidad="factura",
+            entidad_id=factura.id,
+            detalle={"estado_anterior": estado_anterior, "estado_nuevo": factura.estado.value, "error": str(exc)},
+        )
         db.commit()
         db.refresh(factura)
         return EmisionFacturaResponse(

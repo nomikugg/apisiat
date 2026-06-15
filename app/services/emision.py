@@ -14,8 +14,10 @@ from app.integrations.siat.schemas import AutenticacionSolicitud, EmisionResulta
 from app.models.facturacion import Cliente, EstadoFactura, Factura
 from app.models.tenant import PuntoVenta, Sucursal, Tenant
 from app.schemas.factura import EmisionFacturaRequest
+from app.services.auditoria import registrar_auditoria
 
 _PLACEHOLDER = "PENDIENTE"
+_ACTOR_ORQUESTADOR = "orquestador-siat"
 
 
 def construir_payload_siat(
@@ -99,12 +101,32 @@ def emitir_factura(
         codigo_punto_venta=punto_venta.codigo_punto_venta,
     )
 
+    estado_anterior = factura.estado.value
     factura.cuf = resultado.cuf
     factura.cufd = resultado.cufd
     if resultado.transaccion_recepcion and resultado.estado_factura == "VALIDA":
         factura.estado = EstadoFactura.VALIDADA
     else:
         factura.estado = EstadoFactura.RECHAZADA
+
+    registrar_auditoria(
+        db,
+        tenant_id=factura.tenant_id,
+        actor=_ACTOR_ORQUESTADOR,
+        accion="emision_factura",
+        entidad="factura",
+        entidad_id=factura.id,
+        detalle={
+            "estado_anterior": estado_anterior,
+            "estado_nuevo": factura.estado.value,
+            "cuf": resultado.cuf,
+            "cufd": resultado.cufd,
+            "codigo_recepcion": resultado.codigo_recepcion,
+            "estado_factura_sin": resultado.estado_factura,
+            "transaccion_recepcion": resultado.transaccion_recepcion,
+            "observaciones": resultado.observaciones,
+        },
+    )
 
     db.commit()
     return resultado

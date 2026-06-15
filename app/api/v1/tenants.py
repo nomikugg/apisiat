@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.facturacion import Cliente
+from app.models.integration import AuditLog
 from app.models.tenant import ActividadEconomica, Sucursal, Tenant
+from app.schemas.audit import AuditLogRead
 from app.schemas.cliente import ClienteCreate, ClienteRead
 from app.schemas.tenant import (
     ActividadEconomicaCreate,
@@ -109,6 +111,21 @@ def crear_cliente(tenant_id: uuid.UUID, payload: ClienteCreate, db: Session = De
 def listar_clientes(tenant_id: uuid.UUID, db: Session = Depends(get_db)) -> list[Cliente]:
     _get_tenant_or_404(db, tenant_id)
     return list(db.query(Cliente).filter(Cliente.tenant_id == tenant_id).all())
+
+
+@router.get("/{tenant_id}/audit-logs", response_model=list[AuditLogRead])
+def listar_audit_logs(
+    tenant_id: uuid.UUID, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)
+) -> list[AuditLog]:
+    _get_tenant_or_404(db, tenant_id)
+    return list(
+        db.query(AuditLog)
+        .filter(AuditLog.tenant_id == tenant_id)
+        .order_by(AuditLog.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 
 @clientes_router.get("/clientes/{cliente_id}", response_model=ClienteRead)

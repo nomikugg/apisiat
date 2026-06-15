@@ -48,3 +48,13 @@
   (`EmisionFacturaRequest`) hasta que existan catálogos/`Credential`+Vault. Se ajustó
   `facturas.cuf`/`notas_credito_debito.cuf` a `VARCHAR(100)` (revisión Alembic
   `2d913fb54643`) porque el CUF real supera los 50 caracteres del esquema inicial.
+- Auditoría de interacciones SIN: `app/services/auditoria.py::registrar_auditoria()`
+  agrega un `AuditLog` (tabla `audit_logs`, modelo ya existente) a la sesión sin hacer
+  commit. `app/services/emision.py::emitir_factura()` lo invoca tras una emisión exitosa
+  (`accion="emision_factura"`, `detalle` con `estado_anterior`/`estado_nuevo`, `cuf`,
+  `cufd`, `codigo_recepcion`, `estado_factura_sin`, `transaccion_recepcion`,
+  `observaciones`), y `emitir_factura_endpoint()` lo invoca también en el `except
+  SiatConnectionError` (caso contingencia, `detalle` incluye `error`). Nuevo endpoint
+  `GET /api/v1/tenants/{tenant_id}/audit-logs` (paginado, orden descendente por
+  `created_at`) para consultar el historial. `actor` queda como constante
+  `"orquestador-siat"` hasta que exista autenticación de la API.

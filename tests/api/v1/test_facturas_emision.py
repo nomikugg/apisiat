@@ -1,6 +1,8 @@
 import pytest
 
+import app.services.emision as emision_module
 from app.core.config import settings
+from app.integrations.siat.exceptions import SiatConnectionError
 from app.integrations.siat.mock import MOCK_CUFD, start_mock_server_in_thread
 
 _HOST, _PORT = "127.0.0.1", 8089
@@ -82,6 +84,17 @@ def test_emitir_factura_validada(
     assert resultado["transaccion_recepcion"] is True
     assert resultado["estado_factura"] == "VALIDA"
 
+    response = client.get(f"/api/v1/tenants/{tenant['id']}/audit-logs")
+    assert response.status_code == 200
+    logs = response.json()
+    assert len(logs) == 1
+    assert logs[0]["accion"] == "emision_factura"
+    assert logs[0]["entidad"] == "factura"
+    assert logs[0]["entidad_id"] == factura["id"]
+    assert logs[0]["detalle"]["estado_anterior"] == "pendiente"
+    assert logs[0]["detalle"]["estado_nuevo"] == "validada"
+    assert logs[0]["detalle"]["cuf"] == resultado["factura"]["cuf"]
+
 
 def test_emitir_factura_ya_emitida_409(
     client, siat_mock_settings, tenant, sucursal, punto_venta, dosificacion, cliente
@@ -101,3 +114,33 @@ def test_emitir_factura_404(client, siat_mock_settings):
         "/api/v1/facturas/00000000-0000-0000-0000-000000000000/emitir", json=_emision_payload()
     )
     assert response.status_code == 404
+
+
+def test_emitir_factura_contingencia(
+    client, siat_mock_settings, monkeypatch, tenant, sucursal, punto_venta, dosificacion, cliente
+):
+    def _falla_conexion(*args, **kwargs):
+        raise SiatConnectionError("El SIN no respondió")
+
+    monkeypatch.setattr(emision_module, "emitir_factura_compra_venta", _falla_conexion)
+
+    response = _crear_factura(client, tenant, sucursal, punto_venta, dosificacion, cliente)
+    factura = response.json()
+
+    response = client.post(f"/api/v1/facturas/{factura['id']}/emitir", json=_emision_payload())
+    assert response.status_code == 200
+    resultado = response.json()
+
+    assert resultado["factura"]["estado"] == "contingencia"
+    assert resultado["transaccion_recepcion"] is False
+    assert resultado["observaciones"] == ["El SIN no respondió"]
+
+    response = client.get(f"/api/v1/tenants/{tenant['id']}/audit-logs")
+    assert response.status_code == 200
+    logs = response.json()
+    assert len(logs) == 1
+    assert logs[0]["accion"] == "emision_factura"
+    assert logs[0]["entidad_id"] == factura["id"]
+    assert logs[0]["detalle"]["estado_anterior"] == "pendiente"
+    assert logs[0]["detalle"]["estado_nuevo"] == "contingencia"
+    assert logs[0]["detalle"]["error"] == "El SIN no respondió"
