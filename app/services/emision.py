@@ -17,7 +17,6 @@ from app.schemas.factura import EmisionFacturaRequest
 from app.services.auditoria import registrar_auditoria
 
 _PLACEHOLDER = "PENDIENTE"
-_ACTOR_ORQUESTADOR = "orquestador-siat"
 
 
 def construir_payload_siat(
@@ -84,6 +83,8 @@ def emitir_factura(
     punto_venta: PuntoVenta,
     cliente: Cliente,
     extra: EmisionFacturaRequest,
+    *,
+    actor: str,
 ) -> EmisionResultado:
     """
     Construye el payload, ejecuta el orquestador SIAT y actualiza `estado`/`cuf`/`cufd`
@@ -112,7 +113,7 @@ def emitir_factura(
     registrar_auditoria(
         db,
         tenant_id=factura.tenant_id,
-        actor=_ACTOR_ORQUESTADOR,
+        actor=actor,
         accion="emision_factura",
         entidad="factura",
         entidad_id=factura.id,

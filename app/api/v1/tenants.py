@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import requerir_api_key
 from app.models.facturacion import Cliente
-from app.models.integration import AuditLog
+from app.models.integration import ApiKey, AuditLog
 from app.models.tenant import ActividadEconomica, Sucursal, Tenant
 from app.schemas.audit import AuditLogRead
 from app.schemas.cliente import ClienteCreate, ClienteRead
@@ -115,7 +116,11 @@ def listar_clientes(tenant_id: uuid.UUID, db: Session = Depends(get_db)) -> list
 
 @router.get("/{tenant_id}/audit-logs", response_model=list[AuditLogRead])
 def listar_audit_logs(
-    tenant_id: uuid.UUID, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)
+    tenant_id: uuid.UUID,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    _: ApiKey = Depends(requerir_api_key),
 ) -> list[AuditLog]:
     _get_tenant_or_404(db, tenant_id)
     return list(

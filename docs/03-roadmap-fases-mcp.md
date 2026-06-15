@@ -48,6 +48,15 @@
   (`EmisionFacturaRequest`) hasta que existan catálogos/`Credential`+Vault. Se ajustó
   `facturas.cuf`/`notas_credito_debito.cuf` a `VARCHAR(100)` (revisión Alembic
   `2d913fb54643`) porque el CUF real supera los 50 caracteres del esquema inicial.
+- Autenticación por API keys: modelo `ApiKey` (`app/models/integration.py`) con
+  `clave_hash` SHA-256 (la clave en texto plano sólo se retorna en la creación),
+  `prefijo` (primeros 12 chars para identificación) y `activa`. Módulo
+  `app/core/security.py` con `generar_api_key()` y dependencia FastAPI
+  `requerir_api_key()` (header `X-API-Key`). Endpoints: `POST /tenants/{id}/api-keys`
+  (bootstrap, sin auth), `GET /tenants/{id}/api-keys`, `DELETE /api-keys/{id}`.
+  Endpoints protegidos: todos los de `facturas.py` y el de `audit-logs`. El campo
+  `actor` de los `AuditLog` ahora usa `api_key.nombre` en vez del valor hardcodeado.
+  Migración Alembic `bee29705505a`. Tests en `tests/api/v1/test_api_keys.py`.
 - Auditoría de interacciones SIN: `app/services/auditoria.py::registrar_auditoria()`
   agrega un `AuditLog` (tabla `audit_logs`, modelo ya existente) a la sesión sin hacer
   commit. `app/services/emision.py::emitir_factura()` lo invoca tras una emisión exitosa

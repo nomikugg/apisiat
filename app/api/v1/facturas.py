@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import requerir_api_key
 from app.integrations.siat.exceptions import SiatConnectionError, SiatValidationError
 from app.models.facturacion import Cliente, Dosificacion, EstadoFactura, Factura, FacturaItem
+from app.models.integration import ApiKey
 from app.models.tenant import ModalidadFacturacion, PuntoVenta, Sucursal, Tenant
 from app.schemas.factura import EmisionFacturaRequest, EmisionFacturaResponse, FacturaCreate, FacturaRead
 from app.services.auditoria import registrar_auditoria
@@ -22,7 +24,12 @@ def _get_tenant_or_404(db: Session, tenant_id: uuid.UUID) -> Tenant:
 
 
 @router.post("/tenants/{tenant_id}/facturas", response_model=FacturaRead, status_code=status.HTTP_201_CREATED)
-def crear_factura(tenant_id: uuid.UUID, payload: FacturaCreate, db: Session = Depends(get_db)) -> Factura:
+def crear_factura(
+    tenant_id: uuid.UUID,
+    payload: FacturaCreate,
+    db: Session = Depends(get_db),
+    _: ApiKey = Depends(requerir_api_key),
+) -> Factura:
     _get_tenant_or_404(db, tenant_id)
 
     sucursal = db.get(Sucursal, payload.sucursal_id)
@@ -67,7 +74,11 @@ def crear_factura(tenant_id: uuid.UUID, payload: FacturaCreate, db: Session = De
 
 @router.get("/tenants/{tenant_id}/facturas", response_model=list[FacturaRead])
 def listar_facturas(
-    tenant_id: uuid.UUID, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)
+    tenant_id: uuid.UUID,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    _: ApiKey = Depends(requerir_api_key),
 ) -> list[Factura]:
     _get_tenant_or_404(db, tenant_id)
     return list(
@@ -81,7 +92,11 @@ def listar_facturas(
 
 
 @router.get("/facturas/{factura_id}", response_model=FacturaRead)
-def obtener_factura(factura_id: uuid.UUID, db: Session = Depends(get_db)) -> Factura:
+def obtener_factura(
+    factura_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _: ApiKey = Depends(requerir_api_key),
+) -> Factura:
     factura = db.get(Factura, factura_id)
     if factura is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada")
@@ -90,7 +105,10 @@ def obtener_factura(factura_id: uuid.UUID, db: Session = Depends(get_db)) -> Fac
 
 @router.post("/facturas/{factura_id}/emitir", response_model=EmisionFacturaResponse)
 def emitir_factura_endpoint(
-    factura_id: uuid.UUID, payload: EmisionFacturaRequest, db: Session = Depends(get_db)
+    factura_id: uuid.UUID,
+    payload: EmisionFacturaRequest,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(requerir_api_key),
 ) -> EmisionFacturaResponse:
     factura = db.get(Factura, factura_id)
     if factura is None:
@@ -117,14 +135,14 @@ def emitir_factura_endpoint(
     cliente = db.get(Cliente, factura.cliente_id)
 
     try:
-        resultado = emitir_factura(db, factura, tenant, sucursal, punto_venta, cliente, payload)
+        resultado = emitir_factura(db, factura, tenant, sucursal, punto_venta, cliente, payload, actor=api_key.nombre)
     except SiatConnectionError as exc:
         estado_anterior = factura.estado.value
         factura.estado = EstadoFactura.CONTINGENCIA
         registrar_auditoria(
             db,
             tenant_id=factura.tenant_id,
-            actor="orquestador-siat",
+            actor=api_key.nombre,
             accion="emision_factura",
             entidad="factura",
             entidad_id=factura.id,

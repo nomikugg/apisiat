@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 import app.models  # noqa: F401 - registra todas las tablas en Base.metadata
 from app.core.config import settings
 from app.core.database import Base, get_db
+from app.core.security import requerir_api_key
 from app.main import app
+from app.models.integration import ApiKey
 
 
 def _test_database_url() -> str:
@@ -49,12 +51,20 @@ def db_session(engine: Engine) -> Generator[Session, None, None]:
     connection.close()
 
 
+_FAKE_API_KEY = ApiKey(nombre="test-key", prefijo="sk_test____", clave_hash="", activa=True)
+
+
 @pytest.fixture
 def client(db_session: Session) -> Generator[TestClient, None, None]:
     def _override_get_db() -> Generator[Session, None, None]:
         yield db_session
 
+    def _override_auth() -> ApiKey:
+        return _FAKE_API_KEY
+
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[requerir_api_key] = _override_auth
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(requerir_api_key, None)

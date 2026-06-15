@@ -9,7 +9,7 @@ from app.models.facturacion import (
     FacturaItem,
     NotaCreditoDebito,
 )
-from app.models.integration import AuditLog, WebhookEndpoint
+from app.models.integration import ApiKey, AuditLog, WebhookEndpoint
 from app.models.tenant import ActividadEconomica, Credential, PuntoVenta, Sucursal, Tenant
 
 __all__ = [
@@ -31,4 +31,5 @@ __all__ = [
     "UsageRecord",
     "WebhookEndpoint",
     "AuditLog",
+    "ApiKey",
 ]
