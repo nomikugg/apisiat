@@ -76,7 +76,7 @@ class Factura(UUIDPKMixin, TimestampMixin, Base):
     cliente_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clientes.id"))
 
     numero_factura: Mapped[int]
-    cuf: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)
+    cuf: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
     cufd: Mapped[str | None] = mapped_column(String(100))
     fecha_emision: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     moneda: Mapped[str] = mapped_column(String(3), default="BOB")
@@ -108,7 +108,7 @@ class NotaCreditoDebito(UUIDPKMixin, TimestampMixin, Base):
     tipo: Mapped[TipoDocumentoFiscal] = mapped_column(Enum(TipoDocumentoFiscal, name="tipo_documento_fiscal"))
     motivo: Mapped[str] = mapped_column(String(500))
     monto: Mapped[Decimal] = mapped_column(Numeric(18, 2))
-    cuf: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)
+    cuf: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
     estado: Mapped[EstadoFactura] = mapped_column(Enum(EstadoFactura, name="estado_nota"), default=EstadoFactura.PENDIENTE)
 
 

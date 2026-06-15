@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.facturacion import Cliente, Dosificacion, Factura, FacturaItem
-from app.models.tenant import PuntoVenta, Sucursal, Tenant
-from app.schemas.factura import FacturaCreate, FacturaRead
+from app.integrations.siat.exceptions import SiatConnectionError, SiatValidationError
+from app.models.facturacion import Cliente, Dosificacion, EstadoFactura, Factura, FacturaItem
+from app.models.tenant import ModalidadFacturacion, PuntoVenta, Sucursal, Tenant
+from app.schemas.factura import EmisionFacturaRequest, EmisionFacturaResponse, FacturaCreate, FacturaRead
+from app.services.emision import emitir_factura
 
 router = APIRouter(tags=["facturas"])
 
@@ -83,3 +85,57 @@ def obtener_factura(factura_id: uuid.UUID, db: Session = Depends(get_db)) -> Fac
     if factura is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada")
     return factura
+
+
+@router.post("/facturas/{factura_id}/emitir", response_model=EmisionFacturaResponse)
+def emitir_factura_endpoint(
+    factura_id: uuid.UUID, payload: EmisionFacturaRequest, db: Session = Depends(get_db)
+) -> EmisionFacturaResponse:
+    factura = db.get(Factura, factura_id)
+    if factura is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada")
+
+    if factura.estado != EstadoFactura.PENDIENTE:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="La factura ya fue procesada")
+
+    tenant = db.get(Tenant, factura.tenant_id)
+    if tenant.modalidad != ModalidadFacturacion.COMPUTARIZADA_EN_LINEA:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Modalidad de facturación no soportada por el orquestador todavía",
+        )
+
+    if len(payload.items) != len(factura.items):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="La cantidad de 'items' no coincide con los ítems de la factura",
+        )
+
+    sucursal = db.get(Sucursal, factura.sucursal_id)
+    punto_venta = db.get(PuntoVenta, factura.punto_venta_id)
+    cliente = db.get(Cliente, factura.cliente_id)
+
+    try:
+        resultado = emitir_factura(db, factura, tenant, sucursal, punto_venta, cliente, payload)
+    except SiatConnectionError as exc:
+        factura.estado = EstadoFactura.CONTINGENCIA
+        db.commit()
+        db.refresh(factura)
+        return EmisionFacturaResponse(
+            factura=factura,
+            transaccion_recepcion=False,
+            codigo_recepcion=None,
+            estado_factura=None,
+            observaciones=[str(exc)],
+        )
+    except SiatValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    db.refresh(factura)
+    return EmisionFacturaResponse(
+        factura=factura,
+        transaccion_recepcion=resultado.transaccion_recepcion,
+        codigo_recepcion=resultado.codigo_recepcion,
+        estado_factura=resultado.estado_factura,
+        observaciones=resultado.observaciones,
+    )

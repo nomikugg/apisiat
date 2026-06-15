@@ -35,3 +35,16 @@
 - MCPs de Fase 1: configurados en `.mcp.json` (gitignored, contiene credenciales/tokens). Postgres MCP
   apunta a `apisiat` local y GitHub MCP tiene su Personal Access Token configurado. Remote `origin`
   configurado y con push hecho: `https://github.com/nomikugg/apisiat.git` (branch `master`).
+- API REST (`app/api/v1/`): CRUD de tenants/sucursales/puntos de venta/actividades
+  económicas/dosificaciones/clientes/facturas, con asignación y avance de
+  `numero_factura` desde la dosificación correspondiente (commit `b8ecf3f`).
+- Orquestador Factura → SIAT (mock): `app/integrations/siat/orchestrator.py` ensambla
+  el flujo completo (autenticación → CUIS → CUFD → CUF → XML → huella → RecepcionFactura
+  → verificacionEstadoFactura, solo modalidad Computarizada) como función reutilizable;
+  `app/services/emision.py` mapea `Factura`(BD) + datos extra del SIN a
+  `FacturaSiatPayload` y expone `POST /api/v1/facturas/{id}/emitir`. Los campos del SIN
+  sin catálogo propio (`municipio`, `codigoMetodoPago`, `codigoProductoSin`, etc., ver
+  docs/04) y las credenciales de Oficina Virtual se reciben en el body
+  (`EmisionFacturaRequest`) hasta que existan catálogos/`Credential`+Vault. Se ajustó
+  `facturas.cuf`/`notas_credito_debito.cuf` a `VARCHAR(100)` (revisión Alembic
+  `2d913fb54643`) porque el CUF real supera los 50 caracteres del esquema inicial.

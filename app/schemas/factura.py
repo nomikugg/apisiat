@@ -75,3 +75,45 @@ class FacturaRead(BaseModel):
     tipo_documento_sector: int
     estado: EstadoFactura
     items: list[FacturaItemRead]
+
+
+class EmisionItemExtra(BaseModel):
+    """Datos de un ítem requeridos por el SIN que aún no se persisten en `FacturaItem`."""
+
+    actividad_economica: str
+    codigo_producto_sin: int
+    codigo_producto: str
+    unidad_medida: int
+    monto_descuento: Decimal | None = None
+
+
+class EmisionFacturaRequest(BaseModel):
+    """
+    Datos requeridos para emitir una factura PENDIENTE ante el SIN (mock) que aún no se
+    persisten en nuestro esquema: credenciales de Oficina Virtual (hasta que exista
+    resolución de secretos vía `Credential`/Vault) y campos del SIN sin catálogo propio
+    (ver docs/04).
+    """
+
+    nit: int
+    login: str
+    password: str
+    codigo_sistema: str
+    codigo_ambiente: int = 2
+    municipio: str
+    codigo_metodo_pago: int = 1
+    codigo_moneda: int = 1
+    tipo_cambio: Decimal = Decimal("1.00")
+    codigo_tipo_documento_identidad: int = 1
+    usuario: str
+    leyenda: str
+    telefono: str | None = None
+    items: list[EmisionItemExtra]
+
+
+class EmisionFacturaResponse(BaseModel):
+    factura: FacturaRead
+    transaccion_recepcion: bool
+    codigo_recepcion: str | None
+    estado_factura: str | None
+    observaciones: list[str]

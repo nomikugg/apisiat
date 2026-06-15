@@ -148,3 +148,15 @@ class RecepcionResultado(BaseModel):
     codigo_recepcion: str | None = None
     codigo_descripcion: str | None = None
     observaciones: list[str] = []
+
+
+class EmisionResultado(BaseModel):
+    """Resultado del flujo completo de emisión de una "Factura Compra Venta"."""
+
+    cuf: str
+    cufd: str
+    transaccion_recepcion: bool
+    codigo_recepcion: str | None = None
+    estado_factura: str | None = None
+    transaccion_estado: bool | None = None
+    observaciones: list[str] = []
