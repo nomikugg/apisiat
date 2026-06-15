@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WSDL mock de `ServicioFacturacion` del SIN, basado en los campos documentados en
+  siatanexo.impuestos.gob.bo (anexo técnico "Implementación de Servicios de Facturación"):
+  `verificarComunicacion`, `solicitudCuis`, `solicitudCufd`, `RecepcionFactura`,
+  `verificacionEstadoFactura`.
+
+  ADVERTENCIA: esto es una SIMULACIÓN local para desarrollo/pruebas, no el WSDL real del SIN.
+-->
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:tns="urn:siat:mock:facturacion"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  targetNamespace="urn:siat:mock:facturacion">
+
+  <wsdl:types>
+    <xsd:schema targetNamespace="urn:siat:mock:facturacion" elementFormDefault="qualified">
+
+      <xsd:complexType name="CodigoRespuesta">
+        <xsd:sequence>
+          <xsd:element name="codigo" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="descripcion" type="xsd:string" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:complexType name="RespuestaCuis">
+        <xsd:sequence>
+          <xsd:element name="codigoCuis" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="fechaVigencia" type="xsd:dateTime" minOccurs="0"/>
+          <xsd:element name="transaccion" type="xsd:boolean"/>
+          <xsd:element name="codigosRespuesta" type="tns:CodigoRespuesta" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:complexType name="RespuestaCufd">
+        <xsd:sequence>
+          <xsd:element name="codigoCufd" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="codigoControl" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="direccion" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="fechaVigencia" type="xsd:dateTime" minOccurs="0"/>
+          <xsd:element name="transaccion" type="xsd:boolean"/>
+          <xsd:element name="codigosRespuesta" type="tns:CodigoRespuesta" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:complexType name="RespuestaRecepcionFactura">
+        <xsd:sequence>
+          <xsd:element name="transaccion" type="xsd:boolean"/>
+          <xsd:element name="codigoRecepcion" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="codigoDescripcion" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="observaciones" type="xsd:string" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:complexType name="RespuestaEstadoFactura">
+        <xsd:sequence>
+          <xsd:element name="codigoEstado" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="codigoDescripcion" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="transaccion" type="xsd:boolean"/>
+          <xsd:element name="codigosRespuesta" type="tns:CodigoRespuesta" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <!-- verificarComunicacion -->
+      <xsd:element name="verificarComunicacion">
+        <xsd:complexType>
+          <xsd:sequence/>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="verificarComunicacionResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="return" type="xsd:boolean"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- solicitudCuis -->
+      <xsd:element name="solicitudCuis">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="codigoAmbiente" type="xsd:int"/>
+            <xsd:element name="codigoSistema" type="xsd:string"/>
+            <xsd:element name="nit" type="xsd:long"/>
+            <xsd:element name="codigoModalidad" type="xsd:int"/>
+            <xsd:element name="codigoSucursal" type="xsd:int"/>
+            <xsd:element name="codigoPuntoVenta" type="xsd:int"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="solicitudCuisResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="return" type="tns:RespuestaCuis"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- solicitudCufd -->
+      <xsd:element name="solicitudCufd">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="codigoAmbiente" type="xsd:int"/>
+            <xsd:element name="codigoSistema" type="xsd:string"/>
+            <xsd:element name="nit" type="xsd:long"/>
+            <xsd:element name="codigoModalidad" type="xsd:int"/>
+            <xsd:element name="codigoSucursal" type="xsd:int"/>
+            <xsd:element name="codigoPuntoVenta" type="xsd:int"/>
+            <xsd:element name="cuis" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="solicitudCufdResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="return" type="tns:RespuestaCufd"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- RecepcionFactura -->
+      <xsd:element name="RecepcionFactura">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="codigoAmbiente" type="xsd:int"/>
+            <xsd:element name="codigoModalidad" type="xsd:int"/>
+            <xsd:element name="codigoEmision" type="xsd:int"/>
+            <xsd:element name="codigoDocumentoSector" type="xsd:int"/>
+            <xsd:element name="codigoSistema" type="xsd:string"/>
+            <xsd:element name="nit" type="xsd:long"/>
+            <xsd:element name="cuis" type="xsd:string"/>
+            <xsd:element name="cufd" type="xsd:string"/>
+            <xsd:element name="codigoMetodoEnvio" type="xsd:int"/>
+            <xsd:element name="archivo" type="xsd:base64Binary"/>
+            <xsd:element name="fechaEnvio" type="xsd:dateTime"/>
+            <xsd:element name="hashArchivo" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="RecepcionFacturaResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="return" type="tns:RespuestaRecepcionFactura"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- verificacionEstadoFactura -->
+      <xsd:element name="verificacionEstadoFactura">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="codigoAmbiente" type="xsd:int"/>
+            <xsd:element name="codigoModalidad" type="xsd:int"/>
+            <xsd:element name="codigoSistema" type="xsd:string"/>
+            <xsd:element name="nit" type="xsd:long"/>
+            <xsd:element name="cuf" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="verificacionEstadoFacturaResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="return" type="tns:RespuestaEstadoFactura"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+    </xsd:schema>
+  </wsdl:types>
+
+  <wsdl:message name="verificarComunicacionRequest">
+    <wsdl:part name="parameters" element="tns:verificarComunicacion"/>
+  </wsdl:message>
+  <wsdl:message name="verificarComunicacionResponseMsg">
+    <wsdl:part name="parameters" element="tns:verificarComunicacionResponse"/>
+  </wsdl:message>
+
+  <wsdl:message name="solicitudCuisRequest">
+    <wsdl:part name="parameters" element="tns:solicitudCuis"/>
+  </wsdl:message>
+  <wsdl:message name="solicitudCuisResponseMsg">
+    <wsdl:part name="parameters" element="tns:solicitudCuisResponse"/>
+  </wsdl:message>
+
+  <wsdl:message name="solicitudCufdRequest">
+    <wsdl:part name="parameters" element="tns:solicitudCufd"/>
+  </wsdl:message>
+  <wsdl:message name="solicitudCufdResponseMsg">
+    <wsdl:part name="parameters" element="tns:solicitudCufdResponse"/>
+  </wsdl:message>
+
+  <wsdl:message name="RecepcionFacturaRequest">
+    <wsdl:part name="parameters" element="tns:RecepcionFactura"/>
+  </wsdl:message>
+  <wsdl:message name="RecepcionFacturaResponseMsg">
+    <wsdl:part name="parameters" element="tns:RecepcionFacturaResponse"/>
+  </wsdl:message>
+
+  <wsdl:message name="verificacionEstadoFacturaRequest">
+    <wsdl:part name="parameters" element="tns:verificacionEstadoFactura"/>
+  </wsdl:message>
+  <wsdl:message name="verificacionEstadoFacturaResponseMsg">
+    <wsdl:part name="parameters" element="tns:verificacionEstadoFacturaResponse"/>
+  </wsdl:message>
+
+  <wsdl:portType name="ServicioFacturacionSoap">
+    <wsdl:operation name="verificarComunicacion">
+      <wsdl:input message="tns:verificarComunicacionRequest"/>
+      <wsdl:output message="tns:verificarComunicacionResponseMsg"/>
+    </wsdl:operation>
+    <wsdl:operation name="solicitudCuis">
+      <wsdl:input message="tns:solicitudCuisRequest"/>
+      <wsdl:output message="tns:solicitudCuisResponseMsg"/>
+    </wsdl:operation>
+    <wsdl:operation name="solicitudCufd">
+      <wsdl:input message="tns:solicitudCufdRequest"/>
+      <wsdl:output message="tns:solicitudCufdResponseMsg"/>
+    </wsdl:operation>
+    <wsdl:operation name="RecepcionFactura">
+      <wsdl:input message="tns:RecepcionFacturaRequest"/>
+      <wsdl:output message="tns:RecepcionFacturaResponseMsg"/>
+    </wsdl:operation>
+    <wsdl:operation name="verificacionEstadoFactura">
+      <wsdl:input message="tns:verificacionEstadoFacturaRequest"/>
+      <wsdl:output message="tns:verificacionEstadoFacturaResponseMsg"/>
+    </wsdl:operation>
+  </wsdl:portType>
+
+  <wsdl:binding name="ServicioFacturacionSoapBinding" type="tns:ServicioFacturacionSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" style="document"/>
+    <wsdl:operation name="verificarComunicacion">
+      <soap:operation soapAction="urn:siat:mock:facturacion/verificarComunicacion"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="solicitudCuis">
+      <soap:operation soapAction="urn:siat:mock:facturacion/solicitudCuis"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="solicitudCufd">
+      <soap:operation soapAction="urn:siat:mock:facturacion/solicitudCufd"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="RecepcionFactura">
+      <soap:operation soapAction="urn:siat:mock:facturacion/RecepcionFactura"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="verificacionEstadoFactura">
+      <soap:operation soapAction="urn:siat:mock:facturacion/verificacionEstadoFactura"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+
+  <wsdl:service name="ServicioFacturacion">
+    <wsdl:port name="ServicioFacturacionSoap" binding="tns:ServicioFacturacionSoapBinding">
+      <soap:address location="http://127.0.0.1:8089/facturacion"/>
+    </wsdl:port>
+  </wsdl:service>
+
+</wsdl:definitions>

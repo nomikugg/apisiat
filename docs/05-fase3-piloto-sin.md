@@ -26,9 +26,13 @@ Asociación" — esos dos trámites son exclusivos del modelo "Proveedor" multi-
 - NIT activo, Régimen General, con obligación tributaria IVA.
 - Sin marcas de control ni contravenciones tributarias activas (Registro de Riesgo
   Tributario).
-- Credenciales de "SIAT en Línea" (Oficina Virtual) de ese NIT — **quien las tenga
-  (el cliente piloto, o quien tenga acceso delegado a su Oficina Virtual) es quien
-  ejecuta los pasos del portal**.
+- Credenciales de "SIAT en Línea" (Oficina Virtual) de ese NIT: **NIT + login +
+  password**. Quien las tenga (el cliente piloto, o quien tenga acceso delegado a su
+  Oficina Virtual) es quien ejecuta los pasos del portal **y son las mismas
+  credenciales que usará el adapter de Apisiat** para autenticarse vía SOAP (ver "Cómo
+  se autentica el adapter" más abajo) — no hace falta tramitar nada adicional para
+  obtenerlas, son las credenciales con las que el cliente ya entra a
+  `siat.impuestos.gob.bo`.
 - Si la modalidad asignada al cliente es **Electrónica en Línea**: solicitar un
   certificado/firma digital de prueba:
   1. Generar un CSR según los campos definidos por AGETIC.
@@ -96,20 +100,43 @@ La autorización resultante es válida por **3 años**; antes de vencer hay que 
   (Sin pasar por "Confirmación de Asociación de Sistemas" — eso es solo para
   "CONTRIBUYENTES ASOCIADOS" en el modelo Proveedor.)
 
-## Paso 3 — Solicitud de Token Piloto
+## Paso 3 — Credenciales para el consumo de servicios (Sistema Propio)
 
-1. Portal SIAT (v2: "Sistema de Facturación") → "Gestión de Autorización de Sistemas
-   Informáticos de Facturación (Piloto)" → "Token Delegado Piloto".
-2. "Generar Nuevo Ticket" → elegir el NIT del cliente piloto y la duración (máx. 1 año)
-   → "Solicitar".
-3. Guardar este token como `Credential` del tenant piloto (ver `docs/02`).
-4. **Renovación**: cuando caduca o está por caducar, inactivar el token vigente (botón
-   "X") y generar uno nuevo con el mismo flujo.
+A diferencia del camino "Proveedor" (que usa un "Token Delegado" generado en el portal,
+ver "Camino futuro" más abajo), en "Sistema Propio" **no hay un token que tramitar en el
+portal**: el propio sistema (Apisiat, corriendo con el NIT del cliente piloto) se
+autentica directamente con las credenciales de Oficina Virtual del Paso 0 (Requisitos
+previos).
 
-**Uso del token**: va en el header HTTP `apikey: TokenApi <token>` de cada llamada SOAP
-al SIN. **Ya implementado** en `app/integrations/siat/soap_client.py`
-(`SiatSoapClient(wsdl_url=..., token_delegado=...)` → `_build_transport()` configura el
-header en la sesión `requests` usada por `zeep`).
+1. Guardar **NIT + login + password** de la Oficina Virtual del cliente piloto como
+   `Credential` del tenant (ver `docs/02`) — estas son las credenciales que el adapter
+   usará para autenticarse.
+2. No hay "renovación" manual de token: el adapter obtiene un token nuevo (JWT) en cada
+   sesión llamando a `ServicioAutenticacionSoap.autenticacion` (ver siguiente sección).
+
+## Cómo se autentica el adapter (`ServicioAutenticacionSoap`)
+
+Según el anexo técnico "Implementación de Servicios de Facturación"
+(siatanexo.impuestos.gob.bo):
+
+1. `SiatAuthClient.autenticar(nit, login, password)`
+   (`app/integrations/siat/soap_client.py`) llama a la operación `autenticacion` de
+   `ServicioAutenticacionSoap` con `DatosUsuarioRequest{nit, login, password}` (las
+   credenciales del Paso 3) y recibe `UsuarioAutenticacionDto{ok, token, mensajes}`.
+2. Ese `token` (JWT) se pasa a `SiatSoapClient(wsdl_url=..., token=...)`, que lo envía
+   como header HTTP `Authorization: Token <jwt>` en cada llamada SOAP a
+   `ServicioFacturacion` (`_build_transport()` configura el header en la sesión
+   `requests` usada por `zeep`).
+3. El JWT tiene tiempo de vida limitado; cuando expire, repetir el paso 1 para obtener
+   uno nuevo (no es necesario para el desarrollo/pruebas contra el mock, que devuelve
+   siempre el mismo token fijo).
+
+**Pendiente de confirmar contra el WSDL real de PILOTO** (los endpoints
+`pilotosiatservicios.impuestos.gob.bo` devolvieron 503 al consultarlos): el nombre exacto
+de la operación (`autenticacion`) y la duración del JWT. Mientras tanto, el flujo
+completo (autenticación → CUIS → CUFD → generar CUF → construir XML → firmar/huella →
+`RecepcionFactura` → `verificacionEstadoFactura`) está validado contra el **mock local**
+— ver "Mock local del SIN" más abajo.
 
 ## Paso 4 — Inicio de Operaciones (Piloto → Producción)
 
@@ -132,14 +159,42 @@ header en la sesión `requests` usada por `zeep`).
 
 ## Qué queda listo en el código para cuando se complete el trámite
 
-- `app/integrations/siat/soap_client.py`: `SiatSoapClient` ya acepta `token_delegado`
-  y lo envía como header `apikey: TokenApi <token>` (requisito documentado del SIN).
-  Tests en `tests/integrations/siat/test_soap_client.py`.
-- `app/core/config.py`: `siat_wsdl_facturacion` / `siat_wsdl_codigos` — completar con
-  las URLs entregadas en el **Paso 1** (reporte de "Nuevo Sistema").
+- `app/integrations/siat/soap_client.py`: `SiatAuthClient.autenticar(nit, login,
+  password) -> token` (JWT) y `SiatSoapClient(wsdl_url=..., token=...)`, que envía el
+  header `Authorization: Token <token>`. Tests en
+  `tests/integrations/siat/test_soap_client.py`.
+- `app/integrations/siat/schemas.py`: `AutenticacionSolicitud`/`AutenticacionResultado`,
+  `CuisSolicitud`/`CuisResultado`, `CufdSolicitud`/`CufdResultado` (con
+  `codigo_cufd`/`codigo_control` separados — ver `app/integrations/siat/cuf/__init__.py`)
+  y `CodigoRespuesta`, con los nombres de campo del anexo técnico del SIN.
+- `app/core/config.py`: `siat_wsdl_autenticacion` / `siat_wsdl_facturacion` /
+  `siat_wsdl_codigos` — completar con las URLs entregadas en el **Paso 1** (reporte de
+  "Nuevo Sistema").
 - Generador XML (`xml_builder.py`), CUF (`cuf/cuf_generator.py`), redondeo, GZIP, firma
   XML-DSig: implementados y testeados (ver `docs/04`), listos para probarse contra el
-  ambiente PILOTO en cuanto haya WSDL + Token.
+  ambiente PILOTO en cuanto haya WSDL + credenciales.
+
+## Mock local del SIN (desarrollo/pruebas, sin credenciales reales)
+
+`app/integrations/siat/mock/` contiene un servidor SOAP local que simula
+`ServicioAutenticacionSoap` y `ServicioFacturacion` con datos fijos ("canned"), basado
+en la estructura documentada en el anexo técnico del SIN. **No es el SIN real** — solo
+sirve para desarrollar/probar el adapter end-to-end sin esperar el trámite.
+
+- `mock/wsdl/servicio_autenticacion.wsdl` y `mock/wsdl/servicio_facturacion.wsdl`: WSDL
+  mínimos con los campos documentados (`autenticacion`, `solicitudCuis`,
+  `solicitudCufd`, `verificarComunicacion`, `RecepcionFactura`,
+  `verificacionEstadoFactura`).
+- `mock/server.py`: `start_mock_server_in_thread()` levanta el mock en
+  `http://127.0.0.1:8089` (`/autenticacion?wsdl`, `/facturacion?wsdl`); también se puede
+  correr standalone con `python -m app.integrations.siat.mock.server`.
+- `tests/integrations/siat/test_mock_e2e.py`: prueba el flujo completo contra el mock,
+  incluyendo que el `codigoControl` que devuelve (`MOCK_CODIGO_CONTROL`) reproduce el
+  CUF del ejemplo oficial del SIN.
+
+Cuando se obtengan las URLs/credenciales reales de PILOTO, el mismo `SiatAuthClient` /
+`SiatSoapClient` deberían funcionar contra ellas sin cambios de código — solo cambiando
+`settings.siat_wsdl_*` y las credenciales del `Credential` del tenant.
 
 ## Camino futuro: Apisiat como "Proveedor" multi-tenant
 

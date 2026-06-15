@@ -34,7 +34,9 @@ El algoritmo es:
      `digito == 10`, el dígito final es `1`.
   3. Codificar la cadena de 54 dígitos en Base 16 (hexadecimal).
   4. Concatenar el resultado del paso 3 con el "código de control" obtenido
-     del Servicio Web "Solicitud de CUFD" (`CufdResultado.codigo`) -> CUF.
+     del Servicio Web "Solicitud de CUFD" (`CufdResultado.codigo_control`,
+     campo `codigoControl` de la respuesta de `solicitudCufd` — distinto de
+     `codigoCUFD`, que es el valor que va en `<cufd>` de la factura) -> CUF.
 
 Validado contra el ejemplo oficial de la página "Generación CUF": con NIT
 123456789, fecha/hora 2019-01-13 16:37:21.231, sucursal 0, modalidad 1, tipo
@@ -97,7 +99,7 @@ def generar_cuf(
     tipo_documento_sector: int,
     numero_factura: int,
     punto_venta: int,
-    codigo_cufd: str,
+    codigo_control: str,
 ) -> str:
     """Calcula el CUF (Código Único de Factura) para una factura."""
     milisegundos = fecha_hora_emision.microsecond // 1000
@@ -119,4 +121,4 @@ def generar_cuf(
         )
     digito = _digito_verificador_modulo11(campos)
     cadena_54 = f"{campos}{digito}"
-    return format(int(cadena_54), "X") + codigo_cufd
+    return format(int(cadena_54), "X") + codigo_control

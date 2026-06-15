@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WSDL mock de `ServicioAutenticacionSoap` del SIN, basado en los campos documentados en
+  siatanexo.impuestos.gob.bo ("Autenticación > Token de autenticación"):
+  `DatosUsuarioRequest{nit, login, password, client, ip, tipoClienteId, tipoUsuarioId}`
+  -> `UsuarioAutenticacionDto{mensajes, ok, token}`.
+
+  ADVERTENCIA: esto es una SIMULACIÓN local para desarrollo/pruebas, no el WSDL real del SIN.
+-->
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:tns="urn:siat:mock:autenticacion"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  targetNamespace="urn:siat:mock:autenticacion">
+
+  <wsdl:types>
+    <xsd:schema targetNamespace="urn:siat:mock:autenticacion" elementFormDefault="qualified">
+
+      <xsd:complexType name="DatosUsuarioRequest">
+        <xsd:sequence>
+          <xsd:element name="nit" type="xsd:long"/>
+          <xsd:element name="login" type="xsd:string"/>
+          <xsd:element name="password" type="xsd:string"/>
+          <xsd:element name="client" type="xsd:string" minOccurs="0" nillable="true"/>
+          <xsd:element name="ip" type="xsd:string" minOccurs="0" nillable="true"/>
+          <xsd:element name="tipoClienteId" type="xsd:int" minOccurs="0" nillable="true"/>
+          <xsd:element name="tipoUsuarioId" type="xsd:int" minOccurs="0" nillable="true"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:complexType name="MensajeDto">
+        <xsd:sequence>
+          <xsd:element name="codigo" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="descripcion" type="xsd:string" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:complexType name="UsuarioAutenticacionDto">
+        <xsd:sequence>
+          <xsd:element name="mensajes" type="tns:MensajeDto" minOccurs="0" maxOccurs="unbounded"/>
+          <xsd:element name="ok" type="xsd:boolean"/>
+          <xsd:element name="token" type="xsd:string" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:element name="autenticacion">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="DatosUsuarioRequest" type="tns:DatosUsuarioRequest"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="autenticacionResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="return" type="tns:UsuarioAutenticacionDto"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+    </xsd:schema>
+  </wsdl:types>
+
+  <wsdl:message name="autenticacionRequest">
+    <wsdl:part name="parameters" element="tns:autenticacion"/>
+  </wsdl:message>
+  <wsdl:message name="autenticacionResponseMsg">
+    <wsdl:part name="parameters" element="tns:autenticacionResponse"/>
+  </wsdl:message>
+
+  <wsdl:portType name="ServicioAutenticacionSoap">
+    <wsdl:operation name="autenticacion">
+      <wsdl:input message="tns:autenticacionRequest"/>
+      <wsdl:output message="tns:autenticacionResponseMsg"/>
+    </wsdl:operation>
+  </wsdl:portType>
+
+  <wsdl:binding name="ServicioAutenticacionSoapBinding" type="tns:ServicioAutenticacionSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" style="document"/>
+    <wsdl:operation name="autenticacion">
+      <soap:operation soapAction="urn:siat:mock:autenticacion/autenticacion"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+
+  <wsdl:service name="ServicioAutenticacion">
+    <wsdl:port name="ServicioAutenticacionSoap" binding="tns:ServicioAutenticacionSoapBinding">
+      <soap:address location="http://127.0.0.1:8089/autenticacion"/>
+    </wsdl:port>
+  </wsdl:service>
+
+</wsdl:definitions>

@@ -5,11 +5,14 @@
 ```
 app/integrations/siat/
   exceptions.py         # SiatError, SiatConnectionError, SiatValidationError
-  schemas.py             # pydantic: CufdSolicitud/Resultado, FacturaSiatPayload, RecepcionResultado
+  schemas.py             # pydantic: Autenticacion*, Cuis*, Cufd*, FacturaSiatPayload, RecepcionResultado, CodigoRespuesta
   cuf/
     cuf_generator.py       # generar_cuf() — algoritmo vigente 2026 (portal SIN), implementado y testeado
     __init__.py            # re-exporta generar_cuf()
-  soap_client.py          # SiatSoapClient (zeep) — wrapper genérico, requiere config de WSDL
+  soap_client.py          # SiatAuthClient + SiatSoapClient (zeep) — requiere config de WSDL
+  mock/                    # servidor SOAP mock local (autenticación + ServicioFacturacion), ver docs/05
+    server.py
+    wsdl/servicio_autenticacion.wsdl, servicio_facturacion.wsdl
   xml_builder.py           # build_factura_compra_venta_xml() + validar_contra_xsd()
   signing.py               # PKCS#12 + firma XML-DSig (signxml) + huella_digital() (placeholder)
   redondeo.py              # redondear_monto() — HALF-UP a 2 decimales (algoritmo SIN)
@@ -22,7 +25,8 @@ app/integrations/siat/
       facturaComputarizadaCompraVenta.xsd/.xml # idem, modalidad Computarizada
 ```
 
-Tests en `tests/integrations/siat/` (CUF generator, XML builder, redondeo, paquetes, signing).
+Tests en `tests/integrations/siat/` (CUF generator, XML builder, redondeo, paquetes, signing,
+soap_client, y `test_mock_e2e.py` para el flujo completo contra el mock local).
 
 ## Qué está implementado y validado
 
@@ -31,14 +35,19 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder, redondeo, paque
   (NIT, fecha/hora, sucursal, modalidad, tipo de emisión, tipo factura/documento ajuste,
   tipo documento sector, número de factura de 10 dígitos, punto de venta de 4 dígitos) +
   dígito autoverificador Módulo 11 (`suma % 11`, 10→1) + codificación Base 16 + sufijo
-  "código de control" (`CufdResultado.codigo`). Tests verifican el ejemplo oficial del
-  SIN, formato hexadecimal, round-trip de los 54 dígitos y determinismo. Reemplaza la
-  versión anterior basada en el Anexo Técnico I de la RND 101800000026 (2018), que tenía
-  un campo "Número de factura" de 8 dígitos y no incluía "Punto de venta" ni el sufijo de
-  código de control.
-- **CUFD/CUIS/CUAPE**: confirmado que NO se calculan localmente — se obtienen del SIN vía
-  los servicios web "Solicitud de CUFD/CUIS/CUAPE" (`soap_client.obtener_cufd`). El campo
-  `codigo` de la respuesta de CUFD se usa también como sufijo del CUF.
+  "código de control" (`CufdResultado.codigo_control`, campo `codigoControl`). Tests
+  verifican el ejemplo oficial del SIN, formato hexadecimal, round-trip de los 54 dígitos
+  y determinismo. Reemplaza la versión anterior basada en el Anexo Técnico I de la RND
+  101800000026 (2018), que tenía un campo "Número de factura" de 8 dígitos y no incluía
+  "Punto de venta" ni el sufijo de código de control.
+- **Autenticación / CUFD/CUIS/CUAPE**: confirmado que CUFD/CUIS/CUAPE NO se calculan
+  localmente — se obtienen del SIN vía los servicios web `solicitudCuis`/`solicitudCufd`
+  (`soap_client.SiatSoapClient.solicitud_cuis`/`.solicitud_cufd`), autenticados con un
+  token JWT obtenido de `SiatAuthClient.autenticar(nit, login, password)`
+  (`ServicioAutenticacionSoap`, ver `docs/05`). La respuesta de `solicitudCufd` trae DOS
+  campos distintos que antes se confundían: `codigoCufd` (→ `<cufd>` de la factura y
+  `RecepcionFactura`) y `codigoControl` (→ sufijo del CUF, ver arriba) — ahora separados
+  en `CufdResultado.codigo_cufd` / `.codigo_control` (`schemas.py`).
 - **Generador XML "Factura Compra Venta"** (modalidades Electrónica/Computarizada):
   `xml_builder.py` + `schemas.py`. Reescrito en esta revisión a partir del XSD oficial
   descargado del portal SIN (`facturaElectronicaCompraVenta.xsd` /
@@ -81,12 +90,15 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder, redondeo, paque
 
 ## Pendientes — bloqueados por especificación oficial del SIN
 
-1. **URLs WSDL de sandbox** — `settings.siat_wsdl_facturacion` / `settings.siat_wsdl_codigos`
-   están vacías. Obtenerlas del portal `siatinfo.impuestos.gob.bo` (su certificado TLS no
-   es validado por WebFetch/navegador; se descargó con `curl -k` para lectura, pero para
-   uso en producción conviene revisar/instalar la cadena de certificados correcta) una vez
-   se tenga el Token Delegado / registro en ambiente PILOTO. El método "Solicitud de CUFD"
-   requiere además credenciales (`usuario`/`password`) del Token Delegado.
+1. **URLs WSDL de PILOTO** — `settings.siat_wsdl_autenticacion` / `siat_wsdl_facturacion` /
+   `siat_wsdl_codigos` están vacías. Se obtienen del reporte generado al completar el
+   Paso 1 del registro (`docs/05-fase3-piloto-sin.md`). Los endpoints
+   `pilotosiatservicios.impuestos.gob.bo/v1/<Servicio>?wsdl` devolvieron 503 al
+   consultarlos directamente (sin registro). Mientras tanto, `app/integrations/siat/mock/`
+   provee WSDL + servidor mock locales con la misma estructura de operaciones
+   (`autenticacion`, `solicitudCuis`, `solicitudCufd`, `verificarComunicacion`,
+   `RecepcionFactura`, `verificacionEstadoFactura`) para desarrollo/pruebas — ver
+   `docs/05` y `tests/integrations/siat/test_mock_e2e.py`.
 
 2. **"Huella digital" (modalidad Computarizada)** — el primitivo (SHA-256 sobre bytes ->
    hex en minúsculas) está confirmado en siatinfo.impuestos.gob.bo ("Algoritmos
@@ -129,12 +141,14 @@ Tests en `tests/integrations/siat/` (CUF generator, XML builder, redondeo, paque
 
 ## Próximos pasos sugeridos
 
-- Iniciar el registro como proveedor / ambiente PILOTO en el portal SIAT para obtener
-  URLs WSDL de sandbox y un Token Delegado de prueba (usuario/password para
-  "Solicitud de CUFD/CUIS").
-- Una vez disponible el WSDL, implementar el flujo completo: CUIS -> CUFD -> generar CUF
-  (usando `CufdResultado.codigo` como `codigo_cufd`) -> construir XML -> firmar ->
-  `recepcion_factura`.
+- Completar el registro en el portal SIAT (`docs/05`) para obtener las URLs WSDL reales
+  de PILOTO y confirmar el flujo de autenticación (`ServicioAutenticacionSoap`) contra
+  el servicio real — el flujo completo ya está validado contra el mock local
+  (`tests/integrations/siat/test_mock_e2e.py`): autenticación -> CUIS -> CUFD -> generar
+  CUF (usando `CufdResultado.codigo_control`) -> construir XML -> firmar/huella ->
+  `RecepcionFactura` -> `verificacionEstadoFactura`.
+- Una vez disponibles las URLs reales, apuntar `settings.siat_wsdl_*` a ellas y repetir
+  el mismo flujo contra PILOTO con credenciales reales del cliente piloto.
 - Descargar los XSD de los demás "tipos de documento sector" (notas de crédito/débito,
   exportación, hidrocarburos, etc., ver lista completa en
   `siatinfo.impuestos.gob.bo/index.php/facturacion-en-linea/archivos-xml-xsd-de-facturas-electronicas`)

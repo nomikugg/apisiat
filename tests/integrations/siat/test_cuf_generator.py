@@ -28,7 +28,7 @@ def test_generar_cuf_coincide_con_ejemplo_oficial_del_sin():
         tipo_documento_sector=1,
         numero_factura=1,
         punto_venta=0,
-        codigo_cufd="A19E23EF34124CD",
+        codigo_control="A19E23EF34124CD",
     )
 
     assert cuf == "8727F63A15F8976591FDDE5B387C5D015A29E06A1A19E23EF34124CD"
@@ -45,11 +45,11 @@ def test_generar_cuf_es_hexadecimal_y_decodifica_a_54_digitos():
         tipo_documento_sector=1,
         numero_factura=1,
         punto_venta=0,
-        codigo_cufd="ABCDEF0123456789",
+        codigo_control="ABCDEF0123456789",
     )
 
-    hex_parte, codigo_cufd = cuf[:-16], cuf[-16:]
-    assert codigo_cufd == "ABCDEF0123456789"
+    hex_parte, codigo_control = cuf[:-16], cuf[-16:]
+    assert codigo_control == "ABCDEF0123456789"
     assert all(c in "0123456789ABCDEF" for c in hex_parte)
 
     cadena_54 = str(int(hex_parte, 16)).zfill(54)
@@ -80,7 +80,7 @@ def test_generar_cuf_es_deterministico():
         tipo_documento_sector=24,
         numero_factura=42,
         punto_venta=1,
-        codigo_cufd="A19E23EF34124CD",
+        codigo_control="A19E23EF34124CD",
     )
     assert generar_cuf(**kwargs) == generar_cuf(**kwargs)
 
@@ -97,5 +97,5 @@ def test_generar_cuf_rechaza_nit_demasiado_largo():
             tipo_documento_sector=1,
             numero_factura=1,
             punto_venta=0,
-            codigo_cufd="A19E23EF34124CD",
+            codigo_control="A19E23EF34124CD",
         )

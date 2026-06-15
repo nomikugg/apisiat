@@ -4,21 +4,77 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
-class CufdSolicitud(BaseModel):
-    """Datos necesarios para solicitar/generar un CUFD para un punto de venta."""
+class CodigoRespuesta(BaseModel):
+    """Item de `codigosRespuestas`: mensaje (código + descripción) devuelto por el SIN."""
+
+    codigo: str
+    descripcion: str
+
+
+class AutenticacionSolicitud(BaseModel):
+    """
+    Credenciales de Oficina Virtual ("SIAT en Línea") del contribuyente, para
+    `ServicioAutenticacionSoap` (`DatosUsuarioRequest`). Devuelve el token JWT usado en
+    el header `Authorization: Token <jwt>` de los demás servicios.
+    """
 
     nit: int
+    login: str
+    password: str
+
+
+class AutenticacionResultado(BaseModel):
+    ok: bool
+    token: str | None = None
+    mensajes: list[CodigoRespuesta] = []
+
+
+class CuisSolicitud(BaseModel):
+    """Datos para `solicitudCuis` (Código Único de Inicio de Sistemas)."""
+
+    codigo_ambiente: int = Field(ge=1, le=2)  # 1=Producción, 2=Pruebas y Piloto
+    codigo_sistema: str
+    nit: int
+    codigo_modalidad: int = Field(ge=1, le=2)  # 1=Electrónica en Línea, 2=Computarizada en Línea
     codigo_sucursal: int
-    codigo_punto_venta: int
-    codigo_modalidad: int
-    codigo_ambiente: int  # 1=Producción, 2=Piloto/Pruebas
+    codigo_punto_venta: int = 0  # 0 si no corresponde a un punto de venta
+
+
+class CuisResultado(BaseModel):
+    codigo_cuis: str
+    fecha_vigencia: datetime
+    transaccion: bool
+    codigos_respuestas: list[CodigoRespuesta] = []
+
+
+class CufdSolicitud(BaseModel):
+    """Datos para `solicitudCufd` (Código Único de Facturación Diaria)."""
+
+    codigo_ambiente: int = Field(ge=1, le=2)  # 1=Producción, 2=Pruebas y Piloto
+    codigo_sistema: str
+    nit: int
+    codigo_modalidad: int = Field(ge=1, le=2)  # 1=Electrónica en Línea, 2=Computarizada en Línea
+    codigo_sucursal: int
+    codigo_punto_venta: int = 0  # 0 si no corresponde a un punto de venta
+    cuis: str
 
 
 class CufdResultado(BaseModel):
-    codigo: str
+    """
+    Resultado de `solicitudCufd`.
+
+    `codigo_cufd` (campo `codigoCUFD`) es el valor que va en `<cufd>` de la factura y en
+    `RecepcionFactura`. `codigo_control` (campo `codigoControl`) es el "código de
+    control" que se concatena como sufijo del CUF (ver `cuf/cuf_generator.py`) — son
+    campos distintos, no intercambiables.
+    """
+
+    codigo_cufd: str
+    codigo_control: str
     direccion: str | None = None
-    vigente_desde: datetime
-    vigente_hasta: datetime
+    fecha_vigencia: datetime
+    transaccion: bool
+    codigos_respuestas: list[CodigoRespuesta] = []
 
 
 class FacturaSiatItem(BaseModel):
