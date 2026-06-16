@@ -112,7 +112,10 @@ class NotaCreditoDebito(UUIDPKMixin, TimestampMixin, Base):
     tipo: Mapped[TipoDocumentoFiscal] = mapped_column(Enum(TipoDocumentoFiscal, name="tipo_documento_fiscal"))
     motivo: Mapped[str] = mapped_column(String(500))
     monto: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    numero_nota: Mapped[int]
+    codigo_documento_sector: Mapped[int]
     cuf: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
+    cufd: Mapped[str | None] = mapped_column(String(100))
     estado: Mapped[EstadoFactura] = mapped_column(Enum(EstadoFactura, name="estado_nota"), default=EstadoFactura.PENDIENTE)
 
 

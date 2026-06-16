@@ -48,6 +48,14 @@
   (`EmisionFacturaRequest`) hasta que existan catálogos/`Credential`+Vault. Se ajustó
   `facturas.cuf`/`notas_credito_debito.cuf` a `VARCHAR(100)` (revisión Alembic
   `2d913fb54643`) porque el CUF real supera los 50 caracteres del esquema inicial.
+- Notas de crédito/débito: modelo `NotaCreditoDebito` extendido con `numero_nota`,
+  `codigo_documento_sector` y `cufd` (migración `d56e0b94c900`). Flujo en dos pasos:
+  `POST /facturas/{id}/notas-credito-debito` (crea con estado PENDIENTE, asigna número
+  desde la dosificación de la factura original) y `POST /notas/{id}/emitir` (emite al SIN
+  reutilizando `emitir_factura_compra_venta()` con payload de un solo ítem representando
+  el ajuste). Registra `AuditLog` con `accion="emision_nota"` e incluye el CUF de la
+  factura original en el detalle. Solo facturas VALIDADAS pueden generar notas.
+  Endpoints de consulta: `GET /facturas/{id}/notas-credito-debito`, `GET /notas/{id}`.
 - Eventos de contingencia: modelo `ContingencyEvent` ya existente en el esquema.
   Se agregaron `contingency_event_id` (FK nullable) y `emision_sin_json` (JSONB, payload
   sin credenciales) a `Factura` (migración `037ee9941b5d`). Al ocurrir
