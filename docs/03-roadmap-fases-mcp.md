@@ -48,6 +48,12 @@
   (`EmisionFacturaRequest`) hasta que existan catálogos/`Credential`+Vault. Se ajustó
   `facturas.cuf`/`notas_credito_debito.cuf` a `VARCHAR(100)` (revisión Alembic
   `2d913fb54643`) porque el CUF real supera los 50 caracteres del esquema inicial.
+- Anulación de facturas: operación `AnulacionFactura` añadida al WSDL mock, al mock
+  server (`_handle_anulacion_factura`) y al `SiatSoapClient.anulacion_factura()`. El
+  endpoint `POST /facturas/{id}/anular` autentica con el SIN, obtiene CUIS y llama
+  `AnulacionFactura` con el CUF + CUFD de la factura. Solo facturas VALIDADAS (con CUF)
+  pueden anularse. Registra `AuditLog` con `accion="anulacion_factura"`. Schema
+  `AnulacionFacturaRequest` en `app/schemas/factura.py`.
 - Notas de crédito/débito: modelo `NotaCreditoDebito` extendido con `numero_nota`,
   `codigo_documento_sector` y `cufd` (migración `d56e0b94c900`). Flujo en dos pasos:
   `POST /facturas/{id}/notas-credito-debito` (crea con estado PENDIENTE, asigna número

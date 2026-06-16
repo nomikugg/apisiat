@@ -131,3 +131,7 @@ class SiatSoapClient:
     def consulta_estado_factura(self, **kwargs: Any) -> Any:
         """Operación `verificacionEstadoFactura`: consulta el estado de una factura enviada."""
         return self._call("verificacionEstadoFactura", **kwargs)
+
+    def anulacion_factura(self, **kwargs: Any) -> Any:
+        """Operación `AnulacionFactura`: anula una factura ya recibida por el SIN."""
+        return self._call("AnulacionFactura", **kwargs)

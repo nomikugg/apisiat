@@ -116,6 +116,53 @@ def test_emitir_factura_404(client, siat_mock_settings):
     assert response.status_code == 404
 
 
+def _anulacion_payload(**overrides):
+    payload = {
+        "nit": 123456789,
+        "login": "usuario.piloto",
+        "password": "clave-piloto",
+        "codigo_sistema": "APISIAT01",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_anular_factura_validada(
+    client, siat_mock_settings, tenant, sucursal, punto_venta, dosificacion, cliente
+):
+    factura = _crear_factura(client, tenant, sucursal, punto_venta, dosificacion, cliente).json()
+    client.post(f"/api/v1/facturas/{factura['id']}/emitir", json=_emision_payload())
+
+    response = client.post(f"/api/v1/facturas/{factura['id']}/anular", json=_anulacion_payload())
+    assert response.status_code == 200
+    assert response.json()["estado"] == "anulada"
+
+    logs = client.get(f"/api/v1/tenants/{tenant['id']}/audit-logs").json()
+    anulacion_logs = [lg for lg in logs if lg["accion"] == "anulacion_factura"]
+    assert len(anulacion_logs) == 1
+    assert anulacion_logs[0]["detalle"]["estado_anterior"] == "validada"
+    assert anulacion_logs[0]["detalle"]["codigo_estado_sin"] == "ANULADA"
+
+
+def test_anular_factura_pendiente_409(
+    client, siat_mock_settings, tenant, sucursal, punto_venta, dosificacion, cliente
+):
+    factura = _crear_factura(client, tenant, sucursal, punto_venta, dosificacion, cliente).json()
+    response = client.post(f"/api/v1/facturas/{factura['id']}/anular", json=_anulacion_payload())
+    assert response.status_code == 409
+
+
+def test_anular_factura_dos_veces_409(
+    client, siat_mock_settings, tenant, sucursal, punto_venta, dosificacion, cliente
+):
+    factura = _crear_factura(client, tenant, sucursal, punto_venta, dosificacion, cliente).json()
+    client.post(f"/api/v1/facturas/{factura['id']}/emitir", json=_emision_payload())
+    client.post(f"/api/v1/facturas/{factura['id']}/anular", json=_anulacion_payload())
+
+    response = client.post(f"/api/v1/facturas/{factura['id']}/anular", json=_anulacion_payload())
+    assert response.status_code == 409
+
+
 def test_emitir_factura_contingencia(
     client, siat_mock_settings, monkeypatch, tenant, sucursal, punto_venta, dosificacion, cliente
 ):

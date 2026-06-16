@@ -140,6 +140,20 @@ def _handle_verificacion_estado_factura(request: etree._Element) -> bytes:
     )
 
 
+def _handle_anulacion_factura(request: etree._Element) -> bytes:
+    return _soap_response(
+        _FACT_NS,
+        "AnulacionFactura",
+        (
+            "<return>"
+            "<transaccion>true</transaccion>"
+            "<codigoEstado>ANULADA</codigoEstado>"
+            "<codigoDescripcion>Factura anulada correctamente (mock)</codigoDescripcion>"
+            "</return>"
+        ),
+    )
+
+
 _HANDLERS = {
     "autenticacion": _handle_autenticacion,
     "verificarComunicacion": _handle_verificar_comunicacion,
@@ -147,6 +161,7 @@ _HANDLERS = {
     "solicitudCufd": _handle_solicitud_cufd,
     "RecepcionFactura": _handle_recepcion_factura,
     "verificacionEstadoFactura": _handle_verificacion_estado_factura,
+    "AnulacionFactura": _handle_anulacion_factura,
 }
 
 

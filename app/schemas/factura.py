@@ -117,3 +117,15 @@ class EmisionFacturaResponse(BaseModel):
     codigo_recepcion: str | None
     estado_factura: str | None
     observaciones: list[str]
+
+
+class AnulacionFacturaRequest(BaseModel):
+    """Credenciales y contexto SIAT para anular una factura VALIDADA."""
+
+    nit: int
+    login: str
+    password: str
+    codigo_sistema: str
+    codigo_ambiente: int = 2
+    codigo_modalidad: int = 2
+    codigo_documento_sector: int = 1

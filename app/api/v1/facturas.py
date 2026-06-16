@@ -6,10 +6,17 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import requerir_api_key
 from app.integrations.siat.exceptions import SiatConnectionError, SiatValidationError
+from app.integrations.siat.soap_client import SiatAuthClient, SiatSoapClient
 from app.models.facturacion import Cliente, Dosificacion, EstadoFactura, Factura, FacturaItem
 from app.models.integration import ApiKey
 from app.models.tenant import ModalidadFacturacion, PuntoVenta, Sucursal, Tenant
-from app.schemas.factura import EmisionFacturaRequest, EmisionFacturaResponse, FacturaCreate, FacturaRead
+from app.schemas.factura import (
+    AnulacionFacturaRequest,
+    EmisionFacturaRequest,
+    EmisionFacturaResponse,
+    FacturaCreate,
+    FacturaRead,
+)
 from app.services.auditoria import registrar_auditoria
 from app.services.contingencia import obtener_o_crear_evento
 from app.services.emision import emitir_factura
@@ -180,3 +187,80 @@ def emitir_factura_endpoint(
         estado_factura=resultado.estado_factura,
         observaciones=resultado.observaciones,
     )
+
+
+@router.post("/facturas/{factura_id}/anular", response_model=FacturaRead)
+def anular_factura_endpoint(
+    factura_id: uuid.UUID,
+    payload: AnulacionFacturaRequest,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(requerir_api_key),
+) -> Factura:
+    factura = db.get(Factura, factura_id)
+    if factura is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Factura no encontrada")
+    if factura.estado != EstadoFactura.VALIDADA:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Solo se pueden anular facturas validadas (estado actual: {factura.estado.value})",
+        )
+    if not factura.cuf:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La factura no tiene CUF asignado",
+        )
+
+    sucursal = db.get(Sucursal, factura.sucursal_id)
+    punto_venta = db.get(PuntoVenta, factura.punto_venta_id)
+
+    try:
+        token = SiatAuthClient().autenticar(
+            nit=payload.nit, login=payload.login, password=payload.password
+        )
+        cliente_soap = SiatSoapClient(token=token)
+        cuis = cliente_soap.solicitud_cuis(
+            codigoAmbiente=payload.codigo_ambiente,
+            codigoSistema=payload.codigo_sistema,
+            nit=payload.nit,
+            codigoModalidad=payload.codigo_modalidad,
+            codigoSucursal=sucursal.codigo_sucursal,
+            codigoPuntoVenta=punto_venta.codigo_punto_venta,
+        )
+        resultado = cliente_soap.anulacion_factura(
+            codigoAmbiente=payload.codigo_ambiente,
+            codigoModalidad=payload.codigo_modalidad,
+            codigoSistema=payload.codigo_sistema,
+            nit=payload.nit,
+            cuis=cuis.codigoCuis,
+            cufd=factura.cufd,
+            codigoDocumentoSector=payload.codigo_documento_sector,
+            cuf=factura.cuf,
+        )
+    except SiatConnectionError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    if not getattr(resultado, "transaccion", False):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"El SIN rechazó la anulación: {getattr(resultado, 'codigoDescripcion', resultado)}",
+        )
+
+    estado_anterior = factura.estado.value
+    factura.estado = EstadoFactura.ANULADA
+    registrar_auditoria(
+        db,
+        tenant_id=factura.tenant_id,
+        actor=api_key.nombre,
+        accion="anulacion_factura",
+        entidad="factura",
+        entidad_id=factura.id,
+        detalle={
+            "estado_anterior": estado_anterior,
+            "estado_nuevo": factura.estado.value,
+            "cuf": factura.cuf,
+            "codigo_estado_sin": getattr(resultado, "codigoEstado", None),
+        },
+    )
+    db.commit()
+    db.refresh(factura)
+    return factura
